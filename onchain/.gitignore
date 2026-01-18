@@ -1,0 +1,25 @@
+# Environment variables
+.env
+
+# Dependencies
+node_modules/
+
+# Foundry libs are vendored into this repo under `lib/`
+# (so this onchain project has no dependency on another repo)
+
+# Foundry artifacts
+out/
+cache/
+broadcast/
+
+# Foundry logs
+*.log
+
+# Foundry reports
+coverage/
+gas-report.txt
+
+# Editor-specific files
+.vscode/
+.idea/
+.DS_Store

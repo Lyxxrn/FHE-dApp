@@ -1,0 +1,44 @@
+<div class="layout__brand">
+	<div class="layout__logo" aria-hidden="true">
+		<img src="/eth.svg" alt="" />
+	</div>
+	<div>
+		<div class="layout__title">FHE dApp</div>
+		<div class="layout__subtitle">Prototype</div>
+	</div>
+</div>
+
+<ul class="layout-menu" role="navigation" aria-label="Sidebar navigation">
+	@for (item of navItems; track item.routerLink) {
+		<li>
+			<a
+				[routerLink]="item.routerLink"
+				routerLinkActive="active-route"
+				[routerLinkActiveOptions]="{ exact: true }"
+			>
+				<i class="layout-menuitem-icon" [class]="item.icon"></i>
+				<span class="layout-menuitem-text">{{ item.label }}</span>
+			</a>
+		</li>
+	}
+</ul>
+
+<div class="sidebar__bottom">
+	<div class="sidebar__toggle" role="group" aria-label="Theme">
+		<span class="sidebar__toggle-label">Dark mode</span>
+		<p-toggleswitch [(ngModel)]="isDarkMode" (ngModelChange)="onDarkModeChange($event)"></p-toggleswitch>
+	</div>
+
+	<div class="menu-separator" role="separator"></div>
+
+	<ul class="layout-menu" role="navigation" aria-label="Sidebar links">
+		@for (item of linkItems; track item.label) {
+			<li>
+				<a [href]="item.url" [target]="item.target" rel="noopener">
+					<i class="layout-menuitem-icon" [class]="item.icon"></i>
+					<span class="layout-menuitem-text">{{ item.label }}</span>
+				</a>
+			</li>
+		}
+	</ul>
+</div>

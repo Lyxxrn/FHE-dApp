@@ -1,0 +1,34 @@
+@if (!wallet.isConnected()) {
+	<div class="wallet-overlay" role="dialog" aria-modal="true">
+		<p-card class="wallet-card">
+			<div class="wallet-card__header">
+				<div class="wallet-card__title">Wallet verbinden</div>
+				<div class="wallet-card__subtitle">MetaMask Extension oder QR-Code verwenden.</div>
+			</div>
+
+			<div class="wallet-card__content">
+
+				@if (wallet.error()) {
+					<div class="wallet-hint wallet-hint--error">{{ wallet.error() }}</div>
+				}
+
+				<p-button
+					label="Mit MetaMask verbinden"
+					icon="pi pi-wallet"
+					[loading]="wallet.isConnecting()"
+					(onClick)="wallet.connect()"
+				></p-button>
+			</div>
+		</p-card>
+	</div>
+} @else {
+	<div class="wallet-status" aria-live="polite">
+		<div class="wallet-status__addr">{{ wallet.shortAddress() }}</div>
+		<p-button
+			label="Disconnect"
+			[text]="true"
+			icon="pi pi-sign-out"
+			(onClick)="wallet.disconnect()"
+		></p-button>
+	</div>
+}

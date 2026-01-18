@@ -1,1 +1,72 @@
-/* You can add global styles to this file, and also import other style files */
+/* PrimeNG v20 loads theme via providePrimeNG; keep icons as global CSS. */
+@import "primeicons/primeicons.css";
+@import "@fontsource-variable/inter";
+
+:root {
+	--font-family: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+		"Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+
+	/* Sakai-style variable mapping (PrimeNG v20 uses --p-* tokens) */
+	--primary-color: var(--p-primary-color);
+	--primary-contrast-color: var(--p-primary-contrast-color);
+	--text-color: var(--p-text-color);
+	--text-color-secondary: var(--p-text-muted-color);
+	--surface-border: var(--p-content-border-color);
+	--surface-card: var(--p-content-background);
+	--surface-hover: var(--p-content-hover-background);
+	--surface-overlay: var(--p-overlay-popover-background);
+	--content-border-radius: var(--p-content-border-radius);
+
+	/* Background slightly darker so white tiles pop */
+	--surface-ground: var(--p-surface-200);
+}
+
+html.dark {
+	/* Dark mode ground surface */
+	--surface-ground: var(--p-surface-950);
+}
+
+html,
+body {
+	height: 100%;
+}
+
+body {
+	margin: 0;
+	background: var(--surface-ground);
+	color: var(--text-color);
+	font-family: var(--font-family);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+.page {
+	display: grid;
+	gap: 1rem;
+}
+
+.page__title {
+	margin: 0;
+	font-size: 1.375rem;
+	font-weight: 650;
+	letter-spacing: -0.01em;
+}
+
+.page__subtitle {
+	margin: 0.25rem 0 0 0;
+	color: var(--text-color-secondary);
+}
+
+/* Sakai-like: white tiles on a slightly darker surface */
+.p-card {
+	background: var(--surface-card);
+	border: 1px solid var(--surface-border);
+	border-radius: 14px;
+}
+
+.p-card .p-card-body {
+	padding: 1.25rem;
+}
+
