@@ -7,6 +7,8 @@ import "./SmartBond.sol";
 import "./BondAssetToken.sol";
 import { FHE, euint64, InEuint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
+/// @notice Factory for issuing bonds and their confidential asset tokens.
+/// @dev Converts encrypted inputs to handles and wires FHE access grants.
 contract SmartBondFactory is AccessControl {
     bytes32 public constant ISSUER_ADMIN_ROLE = keccak256("ISSUER_ADMIN_ROLE");
     SmartBondRegistry public registry;
@@ -24,7 +26,8 @@ contract SmartBondFactory is AccessControl {
         address paymentToken,
         InEuint64 calldata cap_,
         InEuint64 calldata maturityDate_,
-        InEuint64 calldata priceAtIssue_
+        InEuint64 calldata priceAtIssue_,
+        InEuint64 calldata couponRatePerYear_
     ) external onlyRole(ISSUER_ADMIN_ROLE) returns (address bondAddr, address assetAddr) {
         require(paymentToken != address(0), "Payment=0");
 
@@ -34,6 +37,7 @@ contract SmartBondFactory is AccessControl {
         euint64 cap = FHE.asEuint64(cap_);
         euint64 maturityDate = FHE.asEuint64(maturityDate_);
         euint64 priceAtIssue = FHE.asEuint64(priceAtIssue_);
+        euint64 couponRatePerYear = FHE.asEuint64(couponRatePerYear_);
 
         // Deploy asset token
         BondAssetToken assetToken = new BondAssetToken(cap, issuer);
@@ -48,6 +52,7 @@ contract SmartBondFactory is AccessControl {
             assetAddr,
             maturityDate,
             priceAtIssue,
+            couponRatePerYear,
             issuer
         );
         bondAddr = address(bond);
@@ -55,6 +60,7 @@ contract SmartBondFactory is AccessControl {
         // Grant Bond access to maturity/price handles
         FHE.allow(maturityDate, bondAddr);
         FHE.allow(priceAtIssue, bondAddr);
+        FHE.allow(couponRatePerYear, bondAddr);
 
         // Link asset to bond
         assetToken.setBond(bondAddr);

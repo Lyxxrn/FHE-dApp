@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import { FHE, euint64 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
+/// @notice Registry for issued bonds with encrypted parameters.
+/// @dev Stores FHE handles for maturity and notional cap; issuer is granted access.
 contract SmartBondRegistry is AccessControl {
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
 

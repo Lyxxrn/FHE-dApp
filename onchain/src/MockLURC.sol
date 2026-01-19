@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
+/// @notice Mock ERC20 currency token for tests and demos.
+/// @dev Uses AccessControl to mint/burn by issuer admin.
 contract MockLURC is ERC20, AccessControl {
     bytes32 public constant ISSUER_ADMIN_ROLE = keccak256("ISSUER_ADMIN_ROLE");
 

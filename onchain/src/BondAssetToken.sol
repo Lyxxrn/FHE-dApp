@@ -14,6 +14,8 @@ error NotWhitelisted();
 /// - Balances and total supply are encrypted (managed by FHERC20).
 /// - Cap is encrypted; mint is clamped to remaining capacity using FHE.select.
 /// - Cross-contract access: provider must FHE.allow(value, address(this)) if passing encrypted handles in.
+/// @notice Confidential bond asset token with encrypted balances and capped supply.
+/// @dev Built on Fhenix FHERC20; mint/burn requires bond and respects encrypted cap.
 contract BondAssetToken is FHERC20, AccessControl {
     bytes32 public constant ISSUER_ADMIN_ROLE = keccak256("ISSUER_ADMIN_ROLE");
 
@@ -53,6 +55,7 @@ contract BondAssetToken is FHERC20, AccessControl {
         _;
     }
 
+    /// @notice Link the bond contract; only set once by issuer admin.
     function setBond(address bond_) external onlyRole(ISSUER_ADMIN_ROLE) {
         require(!bondSet, "Bond already set");
         require(bond_ != address(0), "Bond=0");
@@ -62,6 +65,7 @@ contract BondAssetToken is FHERC20, AccessControl {
         emit BondSet(bond_);
     }
 
+    /// @notice Update whitelist status for confidential minting.
     function setWhitelist(address holder, bool status) external onlyRole(ISSUER_ADMIN_ROLE) {
         whitelist[holder] = status;
         emit WhitelistUpdated(holder, status);

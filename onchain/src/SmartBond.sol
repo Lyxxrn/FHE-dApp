@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./BondAssetToken.sol";
 import { FHE, euint64, euint128, InEuint64, ebool } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
+/// @notice Confidential bond lifecycle with FHE-encrypted balances and payouts.
+/// @dev Uses Fhenix FHE handles for notional, coupon and payout math; plaintext funds remain ERC20.
 contract SmartBond is AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -19,6 +21,7 @@ contract SmartBond is AccessControl, ReentrancyGuard {
     euint64 public maturityDate;
     uint64 public subscriptionEndDate;
     euint64 public priceAtIssue;
+    euint64 public couponRatePerYear;
 
     bool public issuanceClosed;
     bool public funded;
@@ -34,6 +37,9 @@ contract SmartBond is AccessControl, ReentrancyGuard {
     uint256 public payoutEscrowBalance;
 
     mapping(address => euint64) private _pendingPayout;
+    mapping(address => euint64) private _pendingToken;
+    mapping(address => euint64) private _pendingPrincipal;
+    mapping(address => euint64) private _pendingInterest;
     mapping(address => bool)   private _payoutDecryptRequested;
 
     uint64 public constant SUBSCRIPTION_PERIOD = 7 days;
@@ -47,13 +53,23 @@ contract SmartBond is AccessControl, ReentrancyGuard {
     event PayoutFunded(euint64 totalPayoutRequired, euint64 soldNotional);
     event RedeemedPayout(address indexed holder, uint256 payoutTotalPlain);
     event Redeemed(address indexed holder, euint64 tokenAmount, euint64 payoutPrincipal, euint64 payoutInterest);
+    event RedeemRequested(address indexed holder, euint64 tokenAmount, euint64 payoutPrincipal, euint64 payoutInterest, euint64 payoutTotal);
+    event PayoutDecryptionRequested(address indexed holder, euint64 payoutTotal);
     event BondClosed();
 
+    /// @notice Expose the encrypted payout handle for off-chain/decrypt orchestration.
+    function pendingPayoutHandle(address holder) external view returns (euint64) {
+        return _pendingPayout[holder];
+    }
+
+    /// @notice Create a bond with fixed coupon set at issuance.
+    /// @param couponRatePerYear_ Encrypted annual rate in 18-decimal format (e.g. 5% => 5e16).
     constructor(
         address paymentToken_,
         address assetToken_,
         euint64 maturityDate_,
         euint64 priceAtIssue_,
+        euint64 couponRatePerYear_,
         address issuerAdmin
     ) {
         require(paymentToken_ != address(0) && assetToken_ != address(0), "Zero addr");
@@ -73,6 +89,7 @@ contract SmartBond is AccessControl, ReentrancyGuard {
         subscriptionEndDate = issueDate + SUBSCRIPTION_PERIOD;
 
         priceAtIssue = priceAtIssue_;
+        couponRatePerYear = couponRatePerYear_;
 
         _grantRole(DEFAULT_ADMIN_ROLE, issuerAdmin);
         _grantRole(ISSUER_ADMIN_ROLE, issuerAdmin);
@@ -80,7 +97,8 @@ contract SmartBond is AccessControl, ReentrancyGuard {
         emit BondActivated(issueDate, subscriptionEndDate, maturityDate, priceAtIssue);
     }
 
-    // paymentAmount, priceAtIssue und alle übrigen Werte werden in Ether (18 Decimals) übergeben/verwaltet
+    /// @notice Buy bond tokens with payment currency; mint confidential notional to buyer.
+    /// @dev Token amount is computed under FHE using encrypted price and capped in 64-bit.
     function buy(uint256 paymentAmount) external {
         require(!issuanceClosed, "Issuance closed");
         require(block.timestamp <= subscriptionEndDate, "After subscription end");
@@ -108,42 +126,47 @@ contract SmartBond is AccessControl, ReentrancyGuard {
         emit Purchased(msg.sender, paymentAmount, tokenAmount, priceAtIssue);
     }
 
+    /// @notice Close issuance and derive interest/payout parameters from final sold notional.
+    /// @dev Interest is computed under FHE from coupon, duration and sold notional.
     function closeIssuance() external onlyRole(ISSUER_ADMIN_ROLE) {
         require(!issuanceClosed, "Already closed");
         soldNotional = assetToken.confidentialTotalSupply();
         FHE.allowThis(soldNotional);
         FHE.allow(soldNotional, issuerAdminAddr);
-        issuanceClosed = true;
 
-        emit IssuanceClosed(soldNotional);
-    }
+        euint64 issueDateEnc = FHE.asEuint64(issueDate);
+        FHE.allowThis(issueDateEnc);
 
-    // interestEnc ist der Gesamtzins in Ether
-    function setComputedInterest(InEuint64 calldata interestEnc) external onlyRole(ISSUER_ADMIN_ROLE) {
-        require(issuanceClosed, "Issuance open");
-        require(!funded, "Already funded");
+        euint64 durationEnc = FHE.sub(maturityDate, issueDateEnc);
 
-        interestAtMaturity = FHE.asEuint64(interestEnc);
+        euint128 sold128 = FHE.asEuint128(soldNotional);
+        euint128 rate128 = FHE.asEuint128(couponRatePerYear);
+        euint128 duration128 = FHE.asEuint128(durationEnc);
+
+        euint128 numer = FHE.mul(FHE.mul(sold128, rate128), duration128);
+        euint128 denom = FHE.asEuint128(365 days * 1e18);
+        euint128 interest128 = FHE.div(numer, denom);
+
+        euint128 max64 = FHE.asEuint128(type(uint64).max);
+        interestAtMaturity = FHE.asEuint64(FHE.select(FHE.gt(interest128, max64), max64, interest128));
         FHE.allowThis(interestAtMaturity);
         FHE.allow(interestAtMaturity, issuerAdminAddr);
 
-        // interestPerToken = (interestAtMaturity * 1e6) / soldNotional
-        euint128 interest128 = FHE.asEuint128(interestAtMaturity);
-        euint128 notional128 = FHE.asEuint128(soldNotional);
-        euint128 ip128       = FHE.div(FHE.mul(interest128, FHE.asEuint128(1e6)), notional128);
-
-        euint128 max64       = FHE.asEuint128(type(uint64).max);
-        interestPerToken     = FHE.asEuint64(FHE.select(FHE.gt(ip128, max64), max64, ip128));
+        euint128 ip128 = FHE.div(FHE.mul(interest128, FHE.asEuint128(1e6)), sold128);
+        interestPerToken = FHE.asEuint64(FHE.select(FHE.gt(ip128, max64), max64, ip128));
         FHE.allowThis(interestPerToken);
         FHE.allow(interestPerToken, issuerAdminAddr);
 
         totalPayoutRequired = FHE.add(soldNotional, interestAtMaturity);
         FHE.allowThis(totalPayoutRequired);
         FHE.allow(totalPayoutRequired, issuerAdminAddr);
+        issuanceClosed = true;
 
+        emit IssuanceClosed(soldNotional);
         emit InterestSet(interestAtMaturity, interestPerToken, totalPayoutRequired);
     }
 
+    /// @notice Fund payout escrow in plaintext ERC20; required before redemption.
     function fundUpfront(uint256 amount) external onlyRole(ISSUER_ADMIN_ROLE) {
         require(issuanceClosed, "Issuance open");
         require(!funded, "Already funded");
@@ -155,53 +178,20 @@ contract SmartBond is AccessControl, ReentrancyGuard {
         emit PayoutFunded(totalPayoutRequired, soldNotional);
     }
 
-    // Der finale Auszahlbetrag wird im 2‑Tx‑Pattern entschlüsselt offengelegt
+    /// @notice Redeem using encrypted amount; triggers decrypt request then claim flow.
+    /// @dev Two-step flow: request decrypt of encrypted payout, then claim when ready.
     function redeem(InEuint64 calldata tokenAmountEnc) external nonReentrant {
-        require(funded, "Not funded");
-
         euint64 tokenAmount = FHE.asEuint64(tokenAmountEnc);
 
-        // Encrypted Maturity-Check; falls nicht fällig → 0
-        ebool isMature          = FHE.gte(FHE.asEuint64(block.timestamp), maturityDate);
-        euint64 effectiveAmount = FHE.select(isMature, tokenAmount, ENCRYPTED_ZERO);
-
-        assetToken.confidentialBurnFrom(msg.sender, effectiveAmount);
-
-        // interest = (effectiveAmount * interestPerToken) / 1e6
-        euint128 eff128      = FHE.asEuint128(effectiveAmount);
-        euint128 ip128       = FHE.asEuint128(interestPerToken);
-        euint128 interest128 = FHE.div(FHE.mul(eff128, ip128), FHE.asEuint128(1e6));
-        euint128 principal128= eff128;
-        euint128 total128    = FHE.add(principal128, interest128);
-
-        euint128 max64       = FHE.asEuint128(type(uint64).max);
-        euint64 payoutInterest  = FHE.asEuint64(FHE.select(FHE.gt(interest128, max64), max64, interest128));
-        euint64 payoutPrincipal = effectiveAmount;
-        euint64 payoutTotalEnc  = FHE.asEuint64(FHE.select(FHE.gt(total128, max64), max64, total128));
-
-        FHE.allow(payoutTotalEnc, issuerAdminAddr);
-
         if (!_payoutDecryptRequested[msg.sender]) {
-            _pendingPayout[msg.sender] = payoutTotalEnc;
-            FHE.allowThis(payoutTotalEnc);
-            FHE.decrypt(payoutTotalEnc);
-            _payoutDecryptRequested[msg.sender] = true;
-            revert("Payout decryption started, retry redeem");
-        } else {
-            (uint64 payoutTotalPlain, bool ready) = FHE.getDecryptResultSafe(_pendingPayout[msg.sender]);
-            require(ready, "Payout decryption pending");
-
-            require(payoutEscrowBalance >= payoutTotalPlain, "Escrow shortfall");
-            payoutEscrowBalance -= payoutTotalPlain;
-            paymentToken.safeTransfer(msg.sender, payoutTotalPlain);
-
-            _payoutDecryptRequested[msg.sender] = false;
-
-            emit RedeemedPayout(msg.sender, payoutTotalPlain);
-            emit Redeemed(msg.sender, tokenAmount, payoutPrincipal, payoutInterest);
+            _requestRedeem(msg.sender, tokenAmount);
+            return;
         }
+
+        _claimRedeem(msg.sender);
     }
 
+    /// @notice Finalize bond and sweep dust back to issuer once escrow is empty.
     function finalize(address issuerAdmin) external onlyRole(ISSUER_ADMIN_ROLE) {
         require(!closed, "Already closed");
         require(payoutEscrowBalance <= DUST_THRESHOLD, "Escrow not empty");
@@ -215,38 +205,39 @@ contract SmartBond is AccessControl, ReentrancyGuard {
         emit BondClosed();
     }
 
-    // Test-Helper (Foundry kann InEuint64 nicht direkt erzeugen)
-    function setComputedInterestEnc(euint64 interestEnc) external onlyRole(ISSUER_ADMIN_ROLE) {
-        require(issuanceClosed, "Issuance open");
-        require(!funded, "Already funded");
 
-        interestAtMaturity = interestEnc;
-        FHE.allowThis(interestAtMaturity);
-        FHE.allow(interestAtMaturity, issuerAdminAddr);
+    /// @notice Redeem using a pre-verified euint64 handle (test/helper variant).
+    function redeemEnc(euint64 tokenAmount) external nonReentrant {
+        if (!_payoutDecryptRequested[msg.sender]) {
+            _requestRedeem(msg.sender, tokenAmount);
+            return;
+        }
 
-        euint128 interest128 = FHE.asEuint128(interestAtMaturity);
-        euint128 notional128 = FHE.asEuint128(soldNotional);
-        euint128 ip128       = FHE.div(FHE.mul(interest128, FHE.asEuint128(1e6)), notional128);
-
-        euint128 max64       = FHE.asEuint128(type(uint64).max);
-        interestPerToken     = FHE.asEuint64(FHE.select(FHE.gt(ip128, max64), max64, ip128));
-        FHE.allowThis(interestPerToken);
-        FHE.allow(interestPerToken, issuerAdminAddr);
-
-        totalPayoutRequired = FHE.add(soldNotional, interestAtMaturity);
-        FHE.allowThis(totalPayoutRequired);
-        FHE.allow(totalPayoutRequired, issuerAdminAddr);
-
-        emit InterestSet(interestAtMaturity, interestPerToken, totalPayoutRequired);
+        _claimRedeem(msg.sender);
     }
 
-    function redeemEnc(euint64 tokenAmount) external nonReentrant {
+    /// @notice Explicitly request decrypt for a redemption.
+    function requestRedeemEnc(euint64 tokenAmount) external nonReentrant {
+        require(!_payoutDecryptRequested[msg.sender], "Decrypt already requested");
+        _requestRedeem(msg.sender, tokenAmount);
+    }
+
+    /// @notice Claim payout after decrypt is ready.
+    function claimRedeem() external nonReentrant {
+        require(_payoutDecryptRequested[msg.sender], "No pending redeem");
+        _claimRedeem(msg.sender);
+    }
+
+    /// @dev Compute encrypted payout, burn confidential tokens and start decrypt.
+    function _requestRedeem(address holder, euint64 tokenAmount) internal {
         require(funded, "Not funded");
 
         ebool isMature          = FHE.gte(FHE.asEuint64(block.timestamp), maturityDate);
         euint64 effectiveAmount = FHE.select(isMature, tokenAmount, ENCRYPTED_ZERO);
 
-        assetToken.confidentialBurnFrom(msg.sender, effectiveAmount);
+        FHE.allow(effectiveAmount, address(assetToken));
+
+        assetToken.confidentialBurnFrom(holder, effectiveAmount);
 
         euint128 eff128      = FHE.asEuint128(effectiveAmount);
         euint128 ip128       = FHE.asEuint128(interestPerToken);
@@ -261,24 +252,30 @@ contract SmartBond is AccessControl, ReentrancyGuard {
 
         FHE.allow(payoutTotalEnc, issuerAdminAddr);
 
-        if (!_payoutDecryptRequested[msg.sender]) {
-            _pendingPayout[msg.sender] = payoutTotalEnc;
-            FHE.allowThis(payoutTotalEnc);
-            FHE.decrypt(payoutTotalEnc);
-            _payoutDecryptRequested[msg.sender] = true;
-            revert("Payout decryption started, retry redeem");
-        } else {
-            (uint64 payoutTotalPlain, bool ready) = FHE.getDecryptResultSafe(_pendingPayout[msg.sender]);
-            require(ready, "Payout decryption pending");
+        _pendingPayout[holder] = payoutTotalEnc;
+        _pendingToken[holder] = tokenAmount;
+        _pendingPrincipal[holder] = payoutPrincipal;
+        _pendingInterest[holder] = payoutInterest;
+        FHE.allowThis(payoutTotalEnc);
+        FHE.decrypt(payoutTotalEnc);
+        _payoutDecryptRequested[holder] = true;
 
-            require(payoutEscrowBalance >= payoutTotalPlain, "Escrow shortfall");
-            payoutEscrowBalance -= payoutTotalPlain;
-            paymentToken.safeTransfer(msg.sender, payoutTotalPlain);
+        emit RedeemRequested(holder, tokenAmount, payoutPrincipal, payoutInterest, payoutTotalEnc);
+        emit PayoutDecryptionRequested(holder, payoutTotalEnc);
+    }
 
-            _payoutDecryptRequested[msg.sender] = false;
+    /// @dev Read decrypt result and transfer plaintext payout.
+    function _claimRedeem(address holder) internal {
+        (uint64 payoutTotalPlain, bool ready) = FHE.getDecryptResultSafe(_pendingPayout[holder]);
+        require(ready, "Payout decryption pending");
 
-            emit RedeemedPayout(msg.sender, payoutTotalPlain);
-            emit Redeemed(msg.sender, tokenAmount, payoutPrincipal, payoutInterest);
-        }
+        require(payoutEscrowBalance >= payoutTotalPlain, "Escrow shortfall");
+        payoutEscrowBalance -= payoutTotalPlain;
+        paymentToken.safeTransfer(holder, payoutTotalPlain);
+
+        _payoutDecryptRequested[holder] = false;
+
+        emit RedeemedPayout(holder, payoutTotalPlain);
+        emit Redeemed(holder, _pendingToken[holder], _pendingPrincipal[holder], _pendingInterest[holder]);
     }
 }
