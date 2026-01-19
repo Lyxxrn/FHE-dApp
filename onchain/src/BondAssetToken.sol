@@ -34,23 +34,17 @@ contract BondAssetToken is FHERC20, AccessControl {
     /// @notice Construct the confidential bond asset token.
     /// @param capEncrypted Encrypted cap handle (euint64).
     constructor(euint64 capEncrypted, address issuerAdmin_)
-        FHERC20("Bond Token", "BOND", 18)
+        FHERC20("Bond Token", "BOND", 6)
     {
         ENCRYPTED_ZERO = FHE.asEuint64(0);
         FHE.allowThis(ENCRYPTED_ZERO);
 
         cap = capEncrypted;
-        //grant contract access
-        FHE.allowThis(cap);
 
         issuerAdmin = issuerAdmin_;
 
-        // Admin needs permanent read access to encrypted cap
-        FHE.allow(cap, issuerAdmin);
-
         _grantRole(DEFAULT_ADMIN_ROLE, issuerAdmin);
         _grantRole(ISSUER_ADMIN_ROLE, issuerAdmin);
-        _grantRole(ISSUER_ADMIN_ROLE, msg.sender);
     }
 
     /// @dev Only the bond is allowed to access some functions.
@@ -64,9 +58,6 @@ contract BondAssetToken is FHERC20, AccessControl {
         require(bond_ != address(0), "Bond=0");
         bond = bond_;
         bondSet = true;
-
-        // Grant bond contract access to current totalSupply handle
-        FHE.allow(_encTotalSupply, bond);
 
         emit BondSet(bond_);
     }

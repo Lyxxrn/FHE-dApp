@@ -69,14 +69,10 @@ contract SmartBond is AccessControl, ReentrancyGuard {
         issueDate = uint64(block.timestamp);
 
         maturityDate = maturityDate_;
-        FHE.allowThis(maturityDate);
-        FHE.allow(maturityDate, issuerAdminAddr);
 
         subscriptionEndDate = issueDate + SUBSCRIPTION_PERIOD;
 
         priceAtIssue = priceAtIssue_;
-        FHE.allowThis(priceAtIssue);
-        FHE.allow(priceAtIssue, issuerAdminAddr);
 
         _grantRole(DEFAULT_ADMIN_ROLE, issuerAdmin);
         _grantRole(ISSUER_ADMIN_ROLE, issuerAdmin);
@@ -93,10 +89,10 @@ contract SmartBond is AccessControl, ReentrancyGuard {
 
         paymentToken.safeTransferFrom(msg.sender, address(this), paymentAmount);
 
-        // tokenAmount = (paymentAmount * 1e18) / priceAtIssue
+        // tokenAmount = (paymentAmount * 1e6) / priceAtIssue
         euint128 payment128     = FHE.asEuint128(paymentAmount);
         euint128 price128       = FHE.asEuint128(priceAtIssue);
-        euint128 numerator128   = FHE.mul(payment128, FHE.asEuint128(1e18));
+        euint128 numerator128   = FHE.mul(payment128, FHE.asEuint128(1e6));
         euint128 tokenAmount128 = FHE.div(numerator128, price128);
 
         euint128 max64          = FHE.asEuint128(type(uint64).max);
@@ -105,6 +101,8 @@ contract SmartBond is AccessControl, ReentrancyGuard {
 
         FHE.allowSender(tokenAmount);
         FHE.allowSender(priceAtIssue);
+
+        FHE.allow(tokenAmount, address(assetToken));
 
         assetToken.confidentialMintTo(msg.sender, tokenAmount);
         emit Purchased(msg.sender, paymentAmount, tokenAmount, priceAtIssue);
@@ -129,10 +127,10 @@ contract SmartBond is AccessControl, ReentrancyGuard {
         FHE.allowThis(interestAtMaturity);
         FHE.allow(interestAtMaturity, issuerAdminAddr);
 
-        // interestPerToken = (interestAtMaturity * 1e18) / soldNotional
+        // interestPerToken = (interestAtMaturity * 1e6) / soldNotional
         euint128 interest128 = FHE.asEuint128(interestAtMaturity);
         euint128 notional128 = FHE.asEuint128(soldNotional);
-        euint128 ip128       = FHE.div(FHE.mul(interest128, FHE.asEuint128(1e18)), notional128);
+        euint128 ip128       = FHE.div(FHE.mul(interest128, FHE.asEuint128(1e6)), notional128);
 
         euint128 max64       = FHE.asEuint128(type(uint64).max);
         interestPerToken     = FHE.asEuint64(FHE.select(FHE.gt(ip128, max64), max64, ip128));
@@ -169,10 +167,10 @@ contract SmartBond is AccessControl, ReentrancyGuard {
 
         assetToken.confidentialBurnFrom(msg.sender, effectiveAmount);
 
-        // interest = (effectiveAmount * interestPerToken) / 1e18
+        // interest = (effectiveAmount * interestPerToken) / 1e6
         euint128 eff128      = FHE.asEuint128(effectiveAmount);
         euint128 ip128       = FHE.asEuint128(interestPerToken);
-        euint128 interest128 = FHE.div(FHE.mul(eff128, ip128), FHE.asEuint128(1e18));
+        euint128 interest128 = FHE.div(FHE.mul(eff128, ip128), FHE.asEuint128(1e6));
         euint128 principal128= eff128;
         euint128 total128    = FHE.add(principal128, interest128);
 
@@ -228,7 +226,7 @@ contract SmartBond is AccessControl, ReentrancyGuard {
 
         euint128 interest128 = FHE.asEuint128(interestAtMaturity);
         euint128 notional128 = FHE.asEuint128(soldNotional);
-        euint128 ip128       = FHE.div(FHE.mul(interest128, FHE.asEuint128(1e18)), notional128);
+        euint128 ip128       = FHE.div(FHE.mul(interest128, FHE.asEuint128(1e6)), notional128);
 
         euint128 max64       = FHE.asEuint128(type(uint64).max);
         interestPerToken     = FHE.asEuint64(FHE.select(FHE.gt(ip128, max64), max64, ip128));
@@ -252,7 +250,7 @@ contract SmartBond is AccessControl, ReentrancyGuard {
 
         euint128 eff128      = FHE.asEuint128(effectiveAmount);
         euint128 ip128       = FHE.asEuint128(interestPerToken);
-        euint128 interest128 = FHE.div(FHE.mul(eff128, ip128), FHE.asEuint128(1e18));
+        euint128 interest128 = FHE.div(FHE.mul(eff128, ip128), FHE.asEuint128(1e6));
         euint128 principal128= eff128;
         euint128 total128    = FHE.add(principal128, interest128);
 

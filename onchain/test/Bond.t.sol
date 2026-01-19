@@ -22,11 +22,14 @@ contract BondLifecycleFheTest is Test {
     // Test-Config (Ether-Konvention)
     uint64 issueDate;
     uint64 maturityTs;
-    uint256 capPlain      = 300 ether;
-    uint256 pricePlain    = 1 ether;   // Par
-    uint256 couponPerYear = 5e16;      // 5% p.a. (18-decimal Rate)
+    uint64 capPlain      = 1_000_000_000;
+    uint64 pricePlain    = 1_000;   // Par
+    uint256 couponPerYear = 5e4;      // 5% p.a. (6-decimal Rate)
 
     function setUp() public {
+        // Make the test contract known to the FHE precompile system
+        FHE.asEuint64(0);
+
         issueDate  = uint64(block.timestamp);
         maturityTs = uint64(block.timestamp + 365 days);
 
@@ -42,12 +45,15 @@ contract BondLifecycleFheTest is Test {
 
         // Asset
         asset = new BondAssetToken(capEnc, issuer);
+        FHE.allow(capEnc, issuer);
         FHE.allow(capEnc, address(asset));
 
         // Bond
         bond = new SmartBond(address(lurc), address(asset), matEnc, priceEnc, issuer);
         FHE.allow(matEnc, address(bond));
+        FHE.allow(matEnc, issuer);
         FHE.allow(priceEnc, address(bond));
+        FHE.allow(priceEnc, issuer);
 
         // Link
         vm.prank(issuer);
@@ -74,8 +80,8 @@ contract BondLifecycleFheTest is Test {
         vm.startPrank(issuer);
         asset.setWhitelist(investor1, true);
         asset.setWhitelist(investor2, true);
-        lurc.mint(investor1, 200 ether);
-        lurc.mint(investor2, 300 ether);
+        lurc.mint(investor1, 200_000_000);
+        lurc.mint(investor2, 300_000_000);
         vm.stopPrank();
     }
 
@@ -88,8 +94,8 @@ contract BondLifecycleFheTest is Test {
     function testFullLifecycle_SingleInvestor_FHE() public {
         // Kauf
         vm.startPrank(investor1);
-        lurc.approve(address(bond), 100 ether);
-        bond.buy(100 ether);
+        lurc.approve(address(bond), 100_000_000);
+        bond.buy(100_000_000);
         vm.stopPrank();
 
         // Issuance schließen
@@ -97,7 +103,7 @@ contract BondLifecycleFheTest is Test {
         bond.closeIssuance();
 
         // Zins off-chain
-        uint256 soldNotionalPlain = 100 ether;
+        uint256 soldNotionalPlain = 100_000_000;
         uint256 interestPlain     = _computeInterest(soldNotionalPlain);
 
         // Zins setzen (verschlüsselt)
@@ -118,7 +124,7 @@ contract BondLifecycleFheTest is Test {
         vm.warp(maturityTs + 1);
         uint256 beforeBal = lurc.balanceOf(investor1);
 
-        euint64 amtEnc = FHE.asEuint64(100 ether);
+        euint64 amtEnc = FHE.asEuint64(100_000_000);
         FHE.allow(amtEnc, address(bond));
 
         vm.startPrank(investor1);
@@ -127,7 +133,7 @@ contract BondLifecycleFheTest is Test {
         bond.redeemEnc(amtEnc);
         vm.stopPrank();
 
-        uint256 expectedPayout = 100 ether + (100 ether * interestPlain) / soldNotionalPlain;
+        uint256 expectedPayout = 100_000_000 + (100_000_000 * interestPlain) / soldNotionalPlain;
         assertEq(lurc.balanceOf(investor1), beforeBal + expectedPayout, "payout mismatch");
 
         vm.prank(issuer);
@@ -137,19 +143,19 @@ contract BondLifecycleFheTest is Test {
     function testTwoInvestors_ProRata_FHE() public {
         // Käufe
         vm.startPrank(investor1);
-        lurc.approve(address(bond), 100 ether);
-        bond.buy(100 ether);
+        lurc.approve(address(bond), 100_000_000);
+        bond.buy(100_000_000);
         vm.stopPrank();
 
         vm.startPrank(investor2);
-        lurc.approve(address(bond), 200 ether);
-        bond.buy(200 ether);
+        lurc.approve(address(bond), 200_000_000);
+        bond.buy(200_000_000);
         vm.stopPrank();
 
         vm.prank(issuer);
         bond.closeIssuance();
 
-        uint256 soldNotionalPlain = 300 ether;
+        uint256 soldNotionalPlain = 300_000_000;
         uint256 interestPlain     = _computeInterest(soldNotionalPlain);
 
         vm.prank(issuer);
@@ -169,7 +175,7 @@ contract BondLifecycleFheTest is Test {
         uint256 i2Before = lurc.balanceOf(investor2);
 
         // Investor1
-        euint64 amt1 = FHE.asEuint64(100 ether);
+        euint64 amt1 = FHE.asEuint64(100_000_000);
         FHE.allow(amt1, address(bond));
         vm.startPrank(investor1);
         vm.expectRevert(bytes("Payout decryption started, retry redeem"));
@@ -178,7 +184,7 @@ contract BondLifecycleFheTest is Test {
         vm.stopPrank();
 
         // Investor2
-        euint64 amt2 = FHE.asEuint64(200 ether);
+        euint64 amt2 = FHE.asEuint64(200_000_000);
         FHE.allow(amt2, address(bond));
         vm.startPrank(investor2);
         vm.expectRevert(bytes("Payout decryption started, retry redeem"));
@@ -186,11 +192,11 @@ contract BondLifecycleFheTest is Test {
         bond.redeemEnc(amt2);
         vm.stopPrank();
 
-        uint256 i1Interest = (100 ether * interestPlain) / soldNotionalPlain;
-        uint256 i2Interest = (200 ether * interestPlain) / soldNotionalPlain;
+        uint256 i1Interest = (100_000_000 * interestPlain) / soldNotionalPlain;
+        uint256 i2Interest = (200_000_000 * interestPlain) / soldNotionalPlain;
 
-        assertEq(lurc.balanceOf(investor1), i1Before + 100 ether + i1Interest, "i1 payout mismatch");
-        assertEq(lurc.balanceOf(investor2), i2Before + 200 ether + i2Interest, "i2 payout mismatch");
+        assertEq(lurc.balanceOf(investor1), i1Before + 100_000_000 + i1Interest, "i1 payout mismatch");
+        assertEq(lurc.balanceOf(investor2), i2Before + 200_000_000 + i2Interest, "i2 payout mismatch");
     }
 
     function testBuyReverts_NotWhitelisted() public {
@@ -198,9 +204,9 @@ contract BondLifecycleFheTest is Test {
         asset.setWhitelist(investor1, false);
 
         vm.startPrank(investor1);
-        lurc.approve(address(bond), 10 ether);
+        lurc.approve(address(bond), 10_000_000);
         vm.expectRevert("Not whitelisted");
-        bond.buy(10 ether);
+        bond.buy(10_000_000);
         vm.stopPrank();
     }
 
@@ -209,22 +215,22 @@ contract BondLifecycleFheTest is Test {
         vm.warp(subEnd + 1);
 
         vm.startPrank(investor1);
-        lurc.approve(address(bond), 10 ether);
+        lurc.approve(address(bond), 10_000_000);
         vm.expectRevert("After subscription end");
-        bond.buy(10 ether);
+        bond.buy(10_000_000);
         vm.stopPrank();
     }
 
     function testRedeem_BeforeMaturity_PaysZero_FHE() public {
         vm.startPrank(investor1);
-        lurc.approve(address(bond), 10 ether);
-        bond.buy(10 ether);
+        lurc.approve(address(bond), 10_000_000);
+        bond.buy(10_000_000);
         vm.stopPrank();
 
         vm.prank(issuer);
         bond.closeIssuance();
 
-        uint256 soldNotionalPlain = 10 ether;
+        uint256 soldNotionalPlain = 10_000_000;
         uint256 interestPlain     = _computeInterest(soldNotionalPlain);
 
         vm.prank(issuer);
@@ -240,7 +246,7 @@ contract BondLifecycleFheTest is Test {
         vm.stopPrank();
 
         uint256 before = lurc.balanceOf(investor1);
-        euint64 amt = FHE.asEuint64(10 ether);
+        euint64 amt = FHE.asEuint64(10_000_000);
         FHE.allow(amt, address(bond));
 
         vm.startPrank(investor1);
