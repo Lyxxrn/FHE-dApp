@@ -138,16 +138,19 @@ export class WalletService {
 	}
 
 	private async initCoFhe() {
+		const connection = getConnection(this.config);
+		if (connection.status !== 'connected') return;
 
-		const client = await getWalletClient(this.config);
-		console.log(client);
+		const viemClient = getPublicClient(this.config, { chainId: environment.chain.id });
+		const viemWalletClient = await getWalletClient(this.config, { chainId: environment.chain.id });
+
 		this.coFhe.set(
 			await cofhejs.initializeWithViem({
-				viemClient: client,
+				viemClient,
+				viemWalletClient,
 				environment: 'TESTNET',
-			})
+			}),
 		);
-
 		console.log(this.coFhe());
 	}
 }
