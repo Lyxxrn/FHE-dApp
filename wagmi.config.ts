@@ -1,5 +1,5 @@
 import { defineConfig } from '@wagmi/cli'
-import { foundry } from '@wagmi/cli/plugins'
+import { foundry, foundryDefaultExcludes } from '@wagmi/cli/plugins'
 
 export default defineConfig({
   out: 'src/generated.ts',
@@ -7,6 +7,15 @@ export default defineConfig({
     foundry({
       project: './onchain',
       artifacts: 'out',
+      // Generate ABIs only for used contracts.
+      include: [
+        'SmartBond.json',
+        'BondAssetToken.json',
+        'SmartBondFactory.json',
+        'SmartBondRegistry.json',
+        'MockLURC.json',
+      ],
+      exclude: [...foundryDefaultExcludes, 'testContracts/**'],
     }),
   ],
 })
