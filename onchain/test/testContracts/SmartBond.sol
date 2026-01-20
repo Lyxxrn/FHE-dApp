@@ -208,6 +208,17 @@ contract SmartBond {
         emit BondClosed();
     }
 
+
+    /// @notice Redeem using a pre-verified euint64 handle (test/helper variant).
+    function redeemEnc(euint64 tokenAmount) external {
+        if (!_payoutDecryptRequested[msg.sender]) {
+            _requestRedeem(msg.sender, tokenAmount);
+            return;
+        }
+
+        _claimRedeem(msg.sender);
+    }
+
     /// @notice Explicitly request decrypt for a redemption.
     function requestRedeemEnc(euint64 tokenAmount) external {
         require(!_payoutDecryptRequested[msg.sender], "Decrypt already requested");

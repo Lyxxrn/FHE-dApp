@@ -5,13 +5,20 @@ import {Test, console2} from "forge-std/Test.sol";
 import {FHE, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {ITaskManager} from "@fhenixprotocol/cofhe-contracts/ICofhe.sol";
 
-import {MockLURC} from "../src/MockLURC.sol";
-import {BondAssetToken} from "../src/BondAssetToken.sol";
-import {SmartBond} from "../src/SmartBond.sol";
-import {SmartBondRegistry} from "../src/SmartBondRegistry.sol";
+import {MockLURC} from "./testContracts/MockLURC.sol";
+import {BondAssetToken} from "./testContracts/BondAssetToken.sol";
+import {SmartBond} from "./testContracts/SmartBond.sol";
+import {SmartBondRegistry} from "./testContracts/SmartBondRegistry.sol";
+import {SmartBondFactory} from "./testContracts/SmartBondFactory.sol";
+
+// The testing contracts in ./testContracts are the same contracts as in /src, but SmartBond.sol needed the function 'redeemEnc' for testing because the
+// productive function 'redeem' needs to have an Fhenix InEuint64 input. Same in SmartBondFactory.sol with the function 'createBondEnc'.
+// These functions will only be called from the dApp, and an InEuint64 can only be generated
+// with CoFHE.js. Therefore, redeemEnc is a modified version which accepts a normal Fhenix euint64 input.
+
 
 contract BondLifecycleFheTest is Test {
-    address constant TASK_MANAGER = 0xeA30c4B8b44078Bbf8a6ef5b9f1eC1626C7848D9;
+    address constant TASK_MANAGER = 0xeA30c4B8b44078Bbf8a6ef5b9f1eC1626C7848D9; // is needed to mock Fhenix TaskManager in test enviroment
     address issuer    = address(0xA11CE);
     address investor1 = address(0xB0B1);
     address investor2 = address(0xC0C2);
@@ -20,6 +27,7 @@ contract BondLifecycleFheTest is Test {
     BondAssetToken asset;
     SmartBond bond;
     SmartBondRegistry registry;
+    SmartBondFactory factory;
 
     // Test-Config
     uint64 issueDate;
@@ -35,54 +43,33 @@ contract BondLifecycleFheTest is Test {
         issueDate  = uint64(block.timestamp);
         maturityTs = uint64(block.timestamp + 365 days);
 
-        // Payment-Token
         vm.startPrank(issuer);
-        lurc = new MockLURC("Mock LURC", "LURC", issuer);
-        vm.stopPrank();
 
-        // encrypt handles for later usage
+        // Payment-Token
+        lurc = new MockLURC("Mock LURC", "LURC", issuer);
+
+        // Registry + Bond-Factory
+        registry = new SmartBondRegistry(issuer);
+        factory = new SmartBondFactory(issuer, address(registry));
+        registry.setFactory(address(factory));
+
+        // Deploy Bond + Asset
         euint64 capEnc    = FHE.asEuint64(capPlain);
         euint64 matEnc    = FHE.asEuint64(maturityTs);
         euint64 priceEnc  = FHE.asEuint64(pricePlain);
         euint64 couponEnc = FHE.asEuint64(uint64(couponPerYear));
+        FHE.allow(matEnc, address(factory));
+        FHE.allow(capEnc, address(factory));
+        FHE.allow(priceEnc, address(factory));
+        FHE.allow(couponEnc, address(factory));
+        // createBondEnc only for testing, use createBond in production (same logic but different inputs due to Fhenix compatibility)
+        (address bondAddr, address assetAddr) = factory.createBondEnc(address(lurc), capEnc, matEnc, priceEnc, couponEnc);
 
-        // Asset
-        asset = new BondAssetToken(capEnc, issuer);
-        FHE.allow(capEnc, issuer);
-        FHE.allow(capEnc, address(asset));
-
-        // Bond
-        bond = new SmartBond(address(lurc), address(asset), matEnc, priceEnc, couponEnc, issuer);
-        FHE.allow(matEnc, address(bond));
-        FHE.allow(matEnc, issuer);
-        FHE.allow(priceEnc, address(bond));
-        FHE.allow(priceEnc, issuer);
-        FHE.allow(couponEnc, address(bond));
-        FHE.allow(couponEnc, issuer);
-
-        // Link
-        vm.prank(issuer);
-        asset.setBond(address(bond));
-
-        // Registry
-        registry = new SmartBondRegistry(issuer);
-        vm.prank(issuer);
-        registry.setFactory(address(this));
-
-        FHE.allow(matEnc, address(registry));
-        FHE.allow(capEnc, address(registry));
-        registry.registerBond(
-            address(bond),
-            issuer,
-            issueDate,
-            matEnc,
-            issueDate + 7 days,
-            capEnc,
-            address(lurc)
-        );
+        // set bond for later usage
+        bond = SmartBond(bondAddr);
 
         // Whitelist + LURC Funding
-        vm.startPrank(issuer);
+        asset = BondAssetToken(assetAddr);
         asset.setWhitelist(investor1, true);
         asset.setWhitelist(investor2, true);
         lurc.mint(investor1, 200_000_000);

@@ -89,4 +89,70 @@ contract SmartBondFactory {
 
         emit BondCreated(bondAddr, assetAddr, issuer);
     }
+
+    // tester
+    function createBondEnc(
+        address paymentToken,
+        euint64 cap_,
+        euint64 maturityDate_,
+        euint64 priceAtIssue_,
+        euint64 couponRatePerYear_
+    ) external onlyIssuerAdmin returns (address bondAddr, address assetAddr) {
+        require(paymentToken != address(0), "Payment=0");
+
+        address issuer = msg.sender;
+
+        // Convert confidential inputs to on-chain handles (not needed for this tester because inputs are already euint64)
+        euint64 cap = cap_;
+        euint64 maturityDate = maturityDate_;
+        euint64 priceAtIssue = priceAtIssue_;
+        euint64 couponRatePerYear = couponRatePerYear_;
+
+        // Deploy asset token
+        BondAssetToken assetToken = new BondAssetToken(cap, issuer);
+        assetAddr = address(assetToken);
+
+        // Grant AssetToken access to its cap handle
+        FHE.allow(cap, assetAddr);
+
+        // Deploy bond
+        SmartBond bond = new SmartBond(
+            paymentToken,
+            assetAddr,
+            maturityDate,
+            priceAtIssue,
+            couponRatePerYear,
+            issuer
+        );
+        bondAddr = address(bond);
+
+        // Grant Bond access to maturity/price handles
+        FHE.allow(maturityDate, bondAddr);
+        FHE.allow(priceAtIssue, bondAddr);
+        FHE.allow(couponRatePerYear, bondAddr);
+
+        // Link asset to bond
+        assetToken.setBond(bondAddr);
+
+        // Read derived values
+        uint64 issueDate = bond.issueDate();
+        uint64 subscriptionEndDate = bond.subscriptionEndDate();
+
+        // Grant Registry access to maturity/cap handles
+        FHE.allow(maturityDate, address(registry));
+        FHE.allow(cap, address(registry));
+
+        // Register bond in registry (expects euint64 handles)
+        registry.registerBond(
+            bondAddr,
+            issuer,
+            issueDate,
+            maturityDate,
+            subscriptionEndDate,
+            cap,
+            paymentToken
+        );
+
+        emit BondCreated(bondAddr, assetAddr, issuer);
+    }
 }
