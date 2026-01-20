@@ -66,11 +66,6 @@ export class WalletService {
 		void reconnect(this.config);
 	}
 
-	get isMetaMaskAvailable(): boolean {
-		// MetaMask SDK connector can use QR code if the extension isn't installed.
-		return true;
-	}
-
 	async connect(): Promise<void> {
 		this.error.set(null);
 
