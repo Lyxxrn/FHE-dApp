@@ -10,11 +10,15 @@ import {
 	reconnect,
 	switchChain,
 	watchConnection,
+	getPublicClient,
+	getWalletClient,
+	getConnectorClient,
 } from '@wagmi/core';
 
 import { metaMask } from 'wagmi/connectors';
 
 import { environment } from '../../environments/environment.development';
+import { cofhejs, Permit, Result } from 'cofhejs/web';
 
 @Injectable({ providedIn: 'root' })
 export class WalletService {
@@ -43,6 +47,7 @@ export class WalletService {
 	readonly chainId = signal<number | null>(null);
 	readonly isConnecting = signal(false);
 	readonly error = signal<string | null>(null);
+	readonly coFhe = signal<Result<Permit | undefined>>({ ok: true, value: undefined } as unknown as Result<Permit | undefined>);
 
 	readonly isConnected = computed(() => !!this.address());
 	readonly shortAddress = computed(() => {
@@ -58,7 +63,8 @@ export class WalletService {
 				this.address.set(connection.status === 'connected' ? (connection.address as string) : null);
 				this.chainId.set(connection.status === 'connected' ? connection.chainId : null);
 				if (connection.status !== 'connected') return;
-				void this.ensureSepolia();
+				// void this.ensureSepolia();
+				void this.initCoFhe();
 			},
 		});
 
@@ -83,6 +89,8 @@ export class WalletService {
 			this.chainId.set(connection.status === 'connected' ? connection.chainId : null);
 
 			await this.ensureSepolia();
+
+			await this.initCoFhe();
 		} catch (e) {
 			const message = e instanceof Error ? e.message : String(e);
 			this.error.set(message || 'Wallet-Verbindung fehlgeschlagen.');
@@ -127,5 +135,19 @@ export class WalletService {
 		this.chainId.set(null);
 		this.isConnecting.set(false);
 		this.error.set(null);
+	}
+
+	private async initCoFhe() {
+
+		const client = await getWalletClient(this.config);
+		console.log(client);
+		this.coFhe.set(
+			await cofhejs.initializeWithViem({
+				viemClient: client,
+				environment: 'TESTNET',
+			})
+		);
+
+		console.log(this.coFhe());
 	}
 }

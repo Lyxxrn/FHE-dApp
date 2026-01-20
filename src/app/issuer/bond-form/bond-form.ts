@@ -1,4 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
+import { form, FormField } from '@angular/forms/signals';
+import { cofhejs, Encryptable} from 'cofhejs/web';
+import { environment } from '../../../environments/environment.development';
 
 @Component({
   selector: 'app-bond-form',
@@ -7,5 +10,13 @@ import { Component } from '@angular/core';
   styleUrl: './bond-form.css',
 })
 export class BondForm {
+
+  bondModel = signal({
+    paymentToken: environment.lurcAddress,
+    cap: Encryptable.uint64,
+    maturityDate: Encryptable.uint64,
+    pricaAtIssure: Encryptable.uint64,
+    couponRateperYear: Encryptable.uint64,
+  });
 
 }
