@@ -18,13 +18,16 @@ import {
 import { metaMask } from 'wagmi/connectors';
 
 import { environment } from '../../environments/environment.development';
-import { cofhejs, Permit, Result } from 'cofhejs/web';
+import { cofhejs, Environment, Permit, Result } from 'cofhejs/web';
+import initTfheWasm from 'tfhe';
+import tfheWasmUrl from 'tfhe/tfhe_bg.wasm?url';
 
 @Injectable({ providedIn: 'root' })
 export class WalletService {
 	private readonly document = inject(DOCUMENT);
 	private enforcingChain = false;
 	private readonly stopWatchConnection: (() => void) | null;
+	private tfheInitPromise: Promise<unknown> | null = null;
 
 	private readonly config: Config = createConfig({
 		ssr: false,
@@ -141,16 +144,30 @@ export class WalletService {
 		const connection = getConnection(this.config);
 		if (connection.status !== 'connected') return;
 
+		await this.ensureTfheInitialized();
+
 		const viemClient = getPublicClient(this.config, { chainId: environment.chain.id });
 		const viemWalletClient = await getWalletClient(this.config, { chainId: environment.chain.id });
 
 		this.coFhe.set(
 			await cofhejs.initializeWithViem({
-				viemClient,
-				viemWalletClient,
+				viemClient: viemClient,
+				viemWalletClient: viemWalletClient,
 				environment: 'TESTNET',
 			}),
 		);
 		console.log(this.coFhe());
+	}
+	
+	// This is needed because tfhe would not load right without it.
+	private async ensureTfheInitialized(): Promise<void> {
+		if (this.tfheInitPromise) {
+			await this.tfheInitPromise;
+			return;
+		}
+
+		const wasmUrl = new URL(tfheWasmUrl, this.document.baseURI).toString();
+		this.tfheInitPromise = initTfheWasm({ module_or_path: wasmUrl });
+		await this.tfheInitPromise;
 	}
 }
