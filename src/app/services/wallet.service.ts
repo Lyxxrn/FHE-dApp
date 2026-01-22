@@ -29,7 +29,7 @@ export class WalletService {
 	private readonly stopWatchConnection: (() => void) | null;
 	private tfheInitPromise: Promise<unknown> | null = null;
 
-	private readonly config: Config = createConfig({
+	readonly config: Config = createConfig({
 		ssr: false,
 		chains: [environment.chain],
 		connectors: [
@@ -154,6 +154,9 @@ export class WalletService {
 				viemClient: viemClient,
 				viemWalletClient: viemWalletClient,
 				environment: 'TESTNET',
+				// this is the only permit that is needed in this dApp, expires after 24h
+				// permits are used to allow this dApp to decrypt values from cofhe and to use allow for FHE contrats, see: https://cofhe-docs.fhenix.zone/cofhejs/guides/permits-management
+				generatePermit: true 
 			}),
 		);
 		console.log(this.coFhe());

@@ -46,3 +46,4 @@ Thumbs.db
 
 temp/
 /src/FHE-dApp/src/environments/environment.development.ts
+package-lock.json

@@ -1,1 +1,5 @@
-<p>bond-form works!</p>
+<input type="number" [formField]="emitForm.cap">
+<input type="date" [formField]="emitForm.maturityDate">
+<input type="number" [formField]="emitForm.priceAtIssue">
+<input type="number" [formField]="emitForm.couponRatePerYear">
+<button type="submit" (click)="onSubmit()" >Speichern</button>
