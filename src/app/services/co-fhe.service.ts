@@ -1,7 +1,7 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { WalletService } from './wallet.service';
 import { cofhejs, Encryptable, EncryptableUint64 } from 'cofhejs/web';
-import { getClient, writeContract, writeContractSync } from '@wagmi/core';
+import { writeContract, waitForTransactionReceipt } from '@wagmi/core';
 import { smartBondFactoryAbi } from '../../generated';
 import { environment } from '../../environments/environment.development';
 import { Hex } from 'viem';
@@ -54,7 +54,7 @@ export class CoFheService {
       // CoFheInUint64 handles need to be casted to InUint64, because CoFheInUint64 only has a string as signature, while InUint64 expect a 0x${string}
       const toInEuint64 = (x: any) => ({ ...x, signature: x.signature as Hex });
       console.log('sending transaction');
-      const result = await writeContractSync(this.wallet.config,{
+      const hash = await writeContract(this.wallet.config,{
         abi: smartBondFactoryAbi,
         address: environment.bondFactoryAddress as `0x${string}`,
         functionName: 'createBond',
@@ -68,8 +68,13 @@ export class CoFheService {
         ],
         gas: 16_000_000n
       });
-      console.log('Encrypted bond: ', result)
-      return true;
+      const receipt = await waitForTransactionReceipt(this.wallet.config, {
+        hash,
+        confirmations: 1,
+        timeout: 180_000,
+      });
+      console.log('Encrypted bond receipt: ', receipt);
+      return receipt.status === 'success';
     }
     catch (e) {
       console.error(e);
