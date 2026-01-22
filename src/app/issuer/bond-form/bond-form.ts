@@ -23,6 +23,7 @@ export class BondForm {
   constructor () {
     this.bondModel = signal<BondData>({
       paymentToken: environment.lurcAddress,
+      isin: 'US0000000001',
       cap: 1000,
       maturityDate: new Date(),
       priceAtIssue: 100,

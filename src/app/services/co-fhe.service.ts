@@ -8,6 +8,7 @@ import { Hex } from 'viem';
 
 export interface BondData {
   paymentToken: string;
+  isin: string;
   cap: number;
   maturityDate: Date;
   priceAtIssue: number;
@@ -62,7 +63,8 @@ export class CoFheService {
           toInEuint64(capEnc),
           toInEuint64(maturityEnc),
           toInEuint64(priceEnc),
-          toInEuint64(couponEnc)
+          toInEuint64(couponEnc),
+          bond.isin
         ],
         gas: 16_000_000n
       });

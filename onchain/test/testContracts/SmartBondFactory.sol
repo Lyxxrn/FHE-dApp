@@ -30,7 +30,8 @@ contract SmartBondFactory {
         InEuint64 calldata cap_,
         InEuint64 calldata maturityDate_,
         InEuint64 calldata priceAtIssue_,
-        InEuint64 calldata couponRatePerYear_
+        InEuint64 calldata couponRatePerYear_,
+        string calldata isin
     ) external onlyIssuerAdmin  returns (address bondAddr, address assetAddr) {
         require(paymentToken != address(0), "Payment=0");
 
@@ -84,7 +85,8 @@ contract SmartBondFactory {
             maturityDate,
             subscriptionEndDate,
             cap,
-            paymentToken
+            paymentToken,
+            isin
         );
 
         emit BondCreated(bondAddr, assetAddr, issuer);
@@ -96,7 +98,8 @@ contract SmartBondFactory {
         euint64 cap_,
         euint64 maturityDate_,
         euint64 priceAtIssue_,
-        euint64 couponRatePerYear_
+        euint64 couponRatePerYear_,
+        string calldata isin
     ) external onlyIssuerAdmin returns (address bondAddr, address assetAddr) {
         require(paymentToken != address(0), "Payment=0");
 
@@ -150,7 +153,8 @@ contract SmartBondFactory {
             maturityDate,
             subscriptionEndDate,
             cap,
-            paymentToken
+            paymentToken,
+            isin
         );
 
         emit BondCreated(bondAddr, assetAddr, issuer);

@@ -35,6 +35,7 @@ contract BondLifecycleFheTest is Test {
     uint64 capPlain      = 1_000_000_000;
     uint64 pricePlain    = 1_000;   // Par
     uint256 couponPerYear = 5e4;      // 5% p.a. (6-decimal Rate)
+    string isin = "US0000000001";
 
     function setUp() public {
         // Make the test contract known to the FHE precompile system
@@ -63,7 +64,7 @@ contract BondLifecycleFheTest is Test {
         FHE.allow(priceEnc, address(factory));
         FHE.allow(couponEnc, address(factory));
         // createBondEnc only for testing, use createBond in production (same logic but different inputs due to Fhenix compatibility)
-        (address bondAddr, address assetAddr) = factory.createBondEnc(address(lurc), capEnc, matEnc, priceEnc, couponEnc);
+        (address bondAddr, address assetAddr) = factory.createBondEnc(address(lurc), capEnc, matEnc, priceEnc, couponEnc, isin);
 
         // set bond for later usage
         bond = SmartBond(bondAddr);
@@ -259,5 +260,6 @@ contract BondLifecycleFheTest is Test {
         assertEq(info.issueDate, issueDate, "issueDate mismatch");
         assertEq(info.subscriptionEndDate, bond.subscriptionEndDate(), "subEnd mismatch");
         assertEq(info.currencyToken, address(lurc), "currency token mismatch");
+        assertEq(keccak256(bytes(info.isin)), keccak256(bytes(isin)), "isin mismatch");
     }
 }

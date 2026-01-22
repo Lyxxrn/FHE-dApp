@@ -17,12 +17,13 @@ contract SmartBondRegistry is AccessControl {
         uint64 subscriptionEndDate;
         euint64 notionalCap;
         address currencyToken;
+        string isin;
     }
 
     BondInfo[] private bonds;
     mapping(address => uint256) public indexOf; // 1-based
 
-    event BondRegistered(address indexed bond, address indexed issuer);
+    event BondRegistered(address indexed bond, address indexed issuer, string isin);
 
     constructor(address admin) {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -41,7 +42,8 @@ contract SmartBondRegistry is AccessControl {
         euint64 maturityDate,
         uint64 subscriptionEndDate,
         euint64 notionalCap,
-        address currencyToken
+        address currencyToken,
+        string calldata isin
     ) external onlyRole(FACTORY_ROLE) {
         require(indexOf[bond] == 0, "Already registered");
 
@@ -61,12 +63,13 @@ contract SmartBondRegistry is AccessControl {
                 maturityDate: maturityDate,
                 subscriptionEndDate: subscriptionEndDate,
                 notionalCap: notionalCap,
-                currencyToken: currencyToken
+                currencyToken: currencyToken,
+                isin: isin
             })
         );
         indexOf[bond] = bonds.length;
 
-        emit BondRegistered(bond, issuer);
+        emit BondRegistered(bond, issuer, isin);
     }
 
     /// @notice Return all registered bonds; encrypted fields are returned as handles.

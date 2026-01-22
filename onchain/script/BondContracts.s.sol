@@ -21,8 +21,8 @@ contract BondContracts is Script {
 
         vm.startBroadcast();
 
-        // 1) MockLURC
-        lurc = new MockLURC("Mock EuroTest", "LURC", msg.sender);
+        // // 1) MockLURC
+        // lurc = new MockLURC("Mock EuroTest", "LURC", msg.sender);
 
         // 2) registry + factory; grant FACTORY_ROLE to factory
         registry = new SmartBondRegistry(msg.sender);

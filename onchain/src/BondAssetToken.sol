@@ -45,6 +45,7 @@ contract BondAssetToken is FHERC20, AccessControl {
 
         issuerAdmin = issuerAdmin_;
 
+        _grantRole(ISSUER_ADMIN_ROLE, msg.sender);
         _grantRole(DEFAULT_ADMIN_ROLE, issuerAdmin);
         _grantRole(ISSUER_ADMIN_ROLE, issuerAdmin);
     }
