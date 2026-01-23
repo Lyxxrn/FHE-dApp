@@ -64,9 +64,5 @@ body {
 	background: var(--surface-card);
 	border: 1px solid var(--surface-border);
 	border-radius: 14px;
+	padding-inline: 30px;
 }
-
-.p-card .p-card-body {
-	padding: 1.25rem;
-}
-

@@ -50,6 +50,7 @@ export class WalletService {
 	readonly chainId = signal<number | null>(null);
 	readonly isConnecting = signal(false);
 	readonly error = signal<string | null>(null);
+	readonly isCofheConnected = signal(false);
 	readonly coFhe = signal<Result<Permit | undefined>>({ ok: true, value: undefined } as unknown as Result<Permit | undefined>);
 
 	readonly isConnected = computed(() => !!this.address());
@@ -141,25 +142,29 @@ export class WalletService {
 	}
 
 	private async initCoFhe() {
-		const connection = getConnection(this.config);
-		if (connection.status !== 'connected') return;
+		try {
+			const connection = getConnection(this.config);
+			if (connection.status !== 'connected') return;
 
-		await this.ensureTfheInitialized();
+			await this.ensureTfheInitialized();
 
-		const viemClient = getPublicClient(this.config, { chainId: environment.chain.id });
-		const viemWalletClient = await getWalletClient(this.config, { chainId: environment.chain.id });
+			const viemClient = getPublicClient(this.config, { chainId: environment.chain.id });
+			const viemWalletClient = await getWalletClient(this.config, { chainId: environment.chain.id });
 
-		this.coFhe.set(
-			await cofhejs.initializeWithViem({
-				viemClient: viemClient,
-				viemWalletClient: viemWalletClient,
-				environment: 'TESTNET',
-				// this is the only permit that is needed in this dApp, expires after 24h
-				// permits are used to allow this dApp to decrypt values from cofhe and to use allow for FHE contrats, see: https://cofhe-docs.fhenix.zone/cofhejs/guides/permits-management
-				generatePermit: true 
-			}),
-		);
-		console.log(this.coFhe());
+			this.coFhe.set(
+				await cofhejs.initializeWithViem({
+					viemClient: viemClient,
+					viemWalletClient: viemWalletClient,
+					environment: 'TESTNET',
+					// this is the only permit that is needed in this dApp, expires after 24h
+					// permits are used to allow this dApp to decrypt values from cofhe and to use allow for FHE contrats, see: https://cofhe-docs.fhenix.zone/cofhejs/guides/permits-management
+					generatePermit: true 
+				}),
+			);
+			this.isCofheConnected.set(true);
+		} catch (e) {
+			this.isCofheConnected.set(false);
+		}
 	}
 	
 	// This is needed because tfhe would not load right without it.

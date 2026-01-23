@@ -4,6 +4,7 @@ import { RouterOutlet } from '@angular/router';
 import { SidebarComponent } from './sidebar/sidebar.component';
 import { Wallet } from './wallet/wallet';
 import { WalletService } from './services/wallet.service';
+import { CoFheService } from './services/co-fhe.service';
 
 @Component({
   selector: 'app-root',
@@ -13,4 +14,5 @@ import { WalletService } from './services/wallet.service';
 })
 export class App {
 	protected readonly wallet = inject(WalletService);
+    protected readonly cofhe = inject(CoFheService);
 }

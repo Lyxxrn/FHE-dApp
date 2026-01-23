@@ -1,0 +1,23 @@
+<p-table [value]="bondSummary" [tableStyle]="{ 'min-width': '50rem' }">
+    <ng-template #header>
+        <tr>
+            <th>ISIN</th>
+            <th>Fälligkeit</th>
+            <th>Kuponzins p.a.</th>
+            <th>Ausgabedatum</th>
+            <th>Zeichnungsschluss</th>
+            <th>Emmissionsangebot</th>
+        </tr>
+    </ng-template>
+    <ng-template #body let-bondSummary>
+        <tr>
+            <td><p-skeleton /></td>
+            <td><p-skeleton /></td>
+            <td><p-skeleton /></td>
+            <td><p-skeleton /></td>
+            <td><p-skeleton /></td>
+            <td><p-skeleton /></td>
+            <td><p-skeleton /></td>
+        </tr>
+    </ng-template>
+</p-table>
