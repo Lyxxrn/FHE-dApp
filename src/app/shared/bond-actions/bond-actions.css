@@ -1,0 +1,41 @@
+.bond-actions__meta {
+	display: grid;
+	gap: 0.5rem;
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid var(--surface-border);
+	margin-bottom: 1rem;
+}
+
+.bond-actions__meta-row {
+	display: grid;
+	grid-template-columns: 140px 1fr;
+	gap: 0.5rem;
+}
+
+.bond-actions__label {
+	color: var(--text-color-secondary);
+	font-size: 0.9rem;
+}
+
+.bond-actions__value {
+	font-weight: 600;
+}
+
+.bond-actions__section {
+	display: grid;
+	gap: 0.75rem;
+}
+
+.bond-actions__title {
+	font-weight: 600;
+}
+
+.bond-actions__row {
+	display: flex;
+	gap: 0.75rem;
+	align-items: center;
+}
+
+.bond-actions__row p-inputnumber {
+	flex: 1 1 auto;
+}

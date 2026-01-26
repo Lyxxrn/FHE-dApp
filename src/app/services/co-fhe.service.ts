@@ -33,7 +33,7 @@ export class CoFheService {
 
   //state
   readonly isEmitting = signal(false);
-  readonly isSummaryLoading = signal(false);
+  readonly isSummaryLoading = signal(true);
 
   bondsSummary = signal<BondSummaryType[]>([]);
 
@@ -136,11 +136,12 @@ export class CoFheService {
       const item: BondSummaryType = {
         isin: result[i].isin,
         maturityDate: this.fromUnixSeconds(this.unwrap(await cofhejs.decrypt(result[i].maturityDate, FheTypes.Uint64))),
-        couponRatePerYear: await readContract(this.wallet.config, {
+        couponRatePerYear: this.unwrap(await cofhejs.decrypt(
+        await readContract(this.wallet.config, {
           abi: smartBondAbi,
           address: result[i].bond,
           functionName: 'couponRatePerYear'
-        }),
+        }),FheTypes.Uint64)),
         issueDate: this.fromUnixSeconds(result[i].issueDate),
         subscriptionEndDate: this.fromUnixSeconds(result[i].subscriptionEndDate),
         notionalCap: this.unwrap(await cofhejs.decrypt(result[i].notionalCap, FheTypes.Uint64))

@@ -1,40 +1,43 @@
-<h3 class="page___subtitle">Anleihe emittieren</h3>
+<<h3 class="page___subtitle">Anleihe emittieren</h3>
 
 <form [formGroup]="emitForm" (ngSubmit)="onSubmit()">
-  <div class="card grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div class="card grid grid-cols-1 gap-4">
 
     <div class="flex flex-col gap-2">
       <label for="isin" class="font-bold">ISIN</label>
-      <div class="p-inputgroup">
-        <span class="p-inputgroup-addon"><i class="pi pi-id-card"></i></span>
+      <p-inputgroup>
+        <p-inputgroup-addon><i class="pi pi-id-card"></i></p-inputgroup-addon>
         <input id="isin" pInputText formControlName="isin" placeholder="ISIN" />
-      </div>
+      </p-inputgroup>
     </div>
 
     <div class="flex flex-col gap-2">
       <label for="cap" class="font-bold">Token-Repräsentanz</label>
-      <div class="p-inputgroup">
-        <span class="p-inputgroup-addon">#</span>
+      <p-inputgroup>
+        <p-inputgroup-addon>#</p-inputgroup-addon>
         <p-inputnumber inputId="cap" formControlName="cap" [useGrouping]="false" placeholder="Token-Repräsentanz"></p-inputnumber>
-      </div>
+      </p-inputgroup>
     </div>
 
     <div class="flex flex-col gap-2">
       <label for="maturityDate" class="font-bold">Fälligkeit</label>
-      <p-datepicker
-        formControlName="maturityDate"
-        [showIcon]="true"
-        inputId="maturityDate"
-        [showOnFocus]="false"
-        placeholder="dd/MM/yyyy"
-        dateFormat="dd/mm/yy">
-      </p-datepicker>
+      <p-inputgroup>
+        <p-inputgroup-addon><i class="pi pi-calendar"></i></p-inputgroup-addon>
+        <p-datepicker
+          formControlName="maturityDate"
+          [showIcon]="false"
+          inputId="maturityDate"
+          [showOnFocus]="false"
+          placeholder="dd/MM/yyyy"
+          dateFormat="dd/mm/yy">
+        </p-datepicker>
+      </p-inputgroup>
     </div>
 
     <div class="flex flex-col gap-2">
       <label for="priceAtIssue" class="font-bold">Ausgabevolumen</label>
-      <div class="p-inputgroup">
-        <span class="p-inputgroup-addon">€</span>
+      <p-inputgroup>
+        <p-inputgroup-addon>€</p-inputgroup-addon>
         <p-inputnumber
           inputId="priceAtIssue"
           formControlName="priceAtIssue"
@@ -43,12 +46,13 @@
           [maxFractionDigits]="2"
           placeholder="Ausgabevolumen">
         </p-inputnumber>
-      </div>
+      </p-inputgroup>
     </div>
 
     <div class="flex flex-col gap-2">
       <label for="couponRatePerYear" class="font-bold">Kuponzins p.a.</label>
-      <div class="p-inputgroup">
+      <p-inputgroup>
+        <p-inputgroup-addon>%</p-inputgroup-addon>
         <p-inputnumber
           inputId="couponRatePerYear"
           formControlName="couponRatePerYear"
@@ -57,11 +61,10 @@
           [maxFractionDigits]="2"
           placeholder="Kuponzins p.a.">
         </p-inputnumber>
-        <span class="p-inputgroup-addon">%</span>
-      </div>
+      </p-inputgroup>
     </div>
 
-    <div class="md:col-span-2">
+    <div class="form-actions">
       <p-button
         label="Anleihe emittieren"
         icon="pi pi-money-bill"

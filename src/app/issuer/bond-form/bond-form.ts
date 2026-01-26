@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment.development';
 import { CoFheService, BondData } from '../../services/co-fhe.service';
 import { ButtonModule } from 'primeng/button';
 import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +13,7 @@ import { FormsModule } from '@angular/forms';
 @Component({
   selector: 'app-bond-form',
   standalone: true,
-  imports: [ReactiveFormsModule, DatePickerModule, ButtonModule, InputGroupModule, InputNumberModule, InputTextModule, FormsModule],
+  imports: [ReactiveFormsModule, DatePickerModule, ButtonModule, InputGroupModule, InputGroupAddonModule, InputNumberModule, InputTextModule, FormsModule],
   templateUrl: './bond-form.html',
   styleUrls: ['./bond-form.css'],
 })

@@ -3,5 +3,7 @@
 }
 
 #bond-form{
-	max-width: 30vww;
+	max-width: 28rem;
+	width: min(100%, 28rem);
+	justify-self: start;
 }

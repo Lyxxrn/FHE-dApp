@@ -1,0 +1,11 @@
+:host ::ng-deep .p-datatable-loading-overlay {
+	display: none;
+}
+
+:host ::ng-deep .p-datatable-loading-icon {
+	display: none;
+}
+
+:host ::ng-deep .p-datatable-mask {
+	display: none;
+}

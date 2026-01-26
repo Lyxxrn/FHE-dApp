@@ -1,12 +1,14 @@
-import { Component, inject } from '@angular/core';
+import { Component, effect, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { SkeletonModule } from 'primeng/skeleton';
 import { TableModule } from 'primeng/table';
+import { ButtonModule } from 'primeng/button';
+import { BondActionsComponent } from '../bond-actions/bond-actions';
 import { CoFheService, BondSummaryType } from '../../services/co-fhe.service';
-import { CofhejsError } from 'cofhejs/web';
 
 @Component({
   selector: 'app-bond-summary',
-  imports: [SkeletonModule, TableModule],
+  imports: [CommonModule, SkeletonModule, TableModule, ButtonModule, BondActionsComponent],
   templateUrl: './bond-summary.html',
   styleUrl: './bond-summary.css',
 })
@@ -14,9 +16,18 @@ export class BondSummary {
 
   protected readonly cofhe = inject(CoFheService);
   bondSummary: BondSummaryType[] = [];
+  actionsVisible = false;
+  selectedBond: BondSummaryType | null = null;
 
   constructor () {
-    this.bondSummary = this.cofhe.bondsSummary();
+    effect(() => {
+      this.bondSummary = this.cofhe.bondsSummary();
+    });
+  }
+
+  openBondActions(bond: BondSummaryType) {
+    this.selectedBond = bond;
+    this.actionsVisible = true;
   }
 
 }
