@@ -21,6 +21,7 @@ import { environment } from '../../environments/environment.development';
 import { cofhejs, Environment, Permit, Result } from 'cofhejs/web';
 import initTfheWasm from 'tfhe';
 import tfheWasmUrl from 'tfhe/tfhe_bg.wasm?url';
+import { MessageService } from 'primeng/api';
 
 @Injectable({ providedIn: 'root' })
 export class WalletService {
@@ -28,6 +29,7 @@ export class WalletService {
 	private enforcingChain = false;
 	private readonly stopWatchConnection: (() => void) | null;
 	private tfheInitPromise: Promise<unknown> | null = null;
+	private messageService = inject(MessageService);
 
 	readonly config: Config = createConfig({
 		ssr: false,
@@ -162,7 +164,17 @@ export class WalletService {
 				}),
 			);
 			this.isCofheConnected.set(true);
+			this.messageService.add({
+				severity: 'info',
+				summary: 'CoFhe',
+				detail: 'Die Anwendung wurde erfolgreich mit CoFhe verbunden.'
+			  });
 		} catch (e) {
+			this.messageService.add({
+				severity: 'error',
+				summary: 'CoFhe',
+				detail: 'Die Anwendung konnte nicht mit CoFhe verbunden werden.'
+			  });
 			this.isCofheConnected.set(false);
 		}
 	}

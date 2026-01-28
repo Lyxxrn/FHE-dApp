@@ -1,0 +1,40 @@
+<h3 class="page___subtitle">LURCs Minten</h3>
+<h4>(Mock EURC Tokens)</h4>
+
+<form [formGroup]="emitForm" (ngSubmit)="onSubmit()">
+  <div class="card grid grid-cols-1 gap-4">
+
+    <div class="flex flex-col gap-2">
+      <label for="address" class="font-bold">Adresse</label>
+      <p-inputgroup>
+        <p-inputgroup-addon><i class="pi pi-id-card"></i></p-inputgroup-addon>
+        <input id="address" pInputText formControlName="address" placeholder="address" />
+      </p-inputgroup>
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label for="amount" class="font-bold">Ausgabevolumen</label>
+      <p-inputgroup>
+        <p-inputgroup-addon>€</p-inputgroup-addon>
+        <p-inputnumber
+          inputId="amount"
+          formControlName="amount"
+          mode="decimal"
+          [minFractionDigits]="0"
+          [maxFractionDigits]="0"
+          placeholder="Ausgabevolumen">
+        </p-inputnumber>
+      </p-inputgroup>
+    </div>
+
+    <div class="form-actions">
+      <p-button
+        label="Tokens minten"
+        icon="pi pi-money-bill"
+        [loading]="loading"
+        type="submit">
+      </p-button>
+    </div>
+
+  </div>
+</form>

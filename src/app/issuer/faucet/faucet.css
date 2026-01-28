@@ -1,0 +1,15 @@
+:host ::ng-deep .p-inputgroup .p-inputtext,
+:host ::ng-deep .p-inputgroup .p-inputnumber-input,
+:host ::ng-deep .p-inputgroup .p-datepicker .p-inputtext {
+    min-height: var(--p-input-height);
+}
+
+:host ::ng-deep .p-inputgroup-addon {
+    min-height: var(--p-input-height);
+}
+
+.form-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.5rem;
+}

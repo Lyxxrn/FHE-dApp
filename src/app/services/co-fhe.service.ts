@@ -5,6 +5,7 @@ import { writeContract, waitForTransactionReceipt, readContract } from '@wagmi/c
 import { smartBondAbi, smartBondFactoryAbi, smartBondRegistryAbi } from '../../generated';
 import { environment } from '../../environments/environment.development';
 import { Hex } from 'viem';
+import { MessageService } from 'primeng/api';
 
 // input type to emit new bonds
 export interface BondData {
@@ -40,6 +41,8 @@ export class CoFheService {
   //cofhe.js is allready been initialized within the WalletService
   protected readonly wallet = inject(WalletService);
 
+  private messageService = inject(MessageService);
+
   constructor() {
     effect(() => {
       if(this.wallet.isCofheConnected()) {
@@ -70,8 +73,15 @@ export class CoFheService {
     this.isEmitting.set(true);
     console.log('Emitting bond: ', bond)
     try {
+
       // unix-timestamp in seconds because cofhe can't encrypt ts date object
       const unixSeconds: bigint = this.toUnixSeconds(bond.maturityDate);
+
+      this.messageService.add({
+        severity: 'info',
+        summary: 'CoFhe',
+        detail: 'Die Verschlüsselung wird gestartet.'
+      });
 
       // encrypt values with coFhe
       const encrypt = await cofhejs.encrypt([
@@ -84,12 +94,21 @@ export class CoFheService {
       // read handles and send them to sbc factory to create new bond
 
       if (!encrypt.success || !encrypt.data || encrypt.data.length !== 4) {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'CoFhe',
+          detail: 'Die Verschlüsselung ist fehlgeschlagen. Es wurde keine Anleihe ausgegeben.'
+        });
         throw new Error('Encryption failed');
       }
       const [capEnc, priceEnc, couponEnc, maturityEnc] = encrypt.data;
       // CoFheInUint64 handles need to be casted to InUint64, because CoFheInUint64 only has a string as signature, while InUint64 expect a 0x${string}
       const toInEuint64 = (x: any) => ({ ...x, signature: x.signature as Hex });
-      console.log('sending transaction');  // TODO: send this info visible via the dApp via new info component
+      this.messageService.add({
+        severity: 'info',
+        summary: 'CoFhe',
+        detail: 'Die Transaktion wird gesendet. Bitte prüfen die Ihre Wallet.'
+      });
       const hash = await writeContract(this.wallet.config,{
         abi: smartBondFactoryAbi,
         address: environment.bondFactoryAddress as `0x${string}`,
@@ -109,7 +128,11 @@ export class CoFheService {
         confirmations: 1,
         timeout: 180_000,
       });
-      console.log('Encrypted bond receipt: ', receipt);
+      this.messageService.add({
+        severity: 'success',
+        summary: 'CoFhe',
+        detail: `Die Anleihe wurde erfolgreich ausgegeben. Transaktions-Hash: ${receipt.transactionHash}`
+      });
       this.isEmitting.set(false);
       return receipt.status === 'success';
     }
