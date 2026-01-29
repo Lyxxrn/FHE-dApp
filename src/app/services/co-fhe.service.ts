@@ -2,7 +2,7 @@ import { effect, inject, Injectable, signal } from '@angular/core';
 import { WalletService } from './wallet.service';
 import { cofhejs, Encryptable, EncryptableUint64, FheTypes, Result } from 'cofhejs/web';
 import { writeContract, waitForTransactionReceipt, readContract } from '@wagmi/core';
-import { smartBondAbi, smartBondFactoryAbi, smartBondRegistryAbi } from '../../generated';
+import { bondAssetTokenAbi, smartBondAbi, smartBondFactoryAbi, smartBondRegistryAbi } from '../../generated';
 import { environment } from '../../environments/environment.development';
 import { Hex } from 'viem';
 import { MessageService } from 'primeng/api';
@@ -22,9 +22,12 @@ export interface BondSummaryType {
   isin: string,
   maturityDate: Date,
   couponRatePerYear: bigint,
+  addressBond: String,
+  addressAsset: String,
   issueDate: Date,
   subscriptionEndDate: Date,
-  notionalCap: bigint
+  notionalCap: bigint,
+  investorBalance: bigint
 }
 
 @Injectable({
@@ -156,6 +159,13 @@ export class CoFheService {
 
     for (let i = 0; i < result.length; i++) {
 
+      const assetAddr = await readContract(this.wallet.config, {
+          abi: smartBondAbi,
+          address: result[i].bond,
+          functionName: 'assetToken'
+        });
+
+      // TODO: the dApp ist currently not allowed to read encrypted assetToken balance and coupon, needs to be fixed
       const item: BondSummaryType = {
         isin: result[i].isin,
         maturityDate: this.fromUnixSeconds(this.unwrap(await cofhejs.decrypt(result[i].maturityDate, FheTypes.Uint64))),
@@ -165,9 +175,19 @@ export class CoFheService {
           address: result[i].bond,
           functionName: 'couponRatePerYear'
         }),FheTypes.Uint64)),
+        addressBond: result[i].bond,
+        addressAsset: assetAddr,
         issueDate: this.fromUnixSeconds(result[i].issueDate),
         subscriptionEndDate: this.fromUnixSeconds(result[i].subscriptionEndDate),
-        notionalCap: this.unwrap(await cofhejs.decrypt(result[i].notionalCap, FheTypes.Uint64))
+        notionalCap: this.unwrap(await cofhejs.decrypt(result[i].notionalCap, FheTypes.Uint64)),
+        // investorBalance: this.unwrap(await cofhejs.decrypt(
+        // await readContract(this.wallet.config, {
+        //   abi: bondAssetTokenAbi,
+        //   address: assetAddr,
+        //   functionName: 'balanceOf', 
+        //   args: [this.wallet.address() as `0x${string}`]
+        // }),FheTypes.Uint64))
+        investorBalance: BigInt(1000) // only mockup for now until bug in fhe contract is fixed
       }
       items.push(item);
     }

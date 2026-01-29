@@ -36,6 +36,7 @@
 	align-items: center;
 }
 
-.bond-actions__row p-inputnumber {
+.bond-actions__row > p-inputnumber,
+.bond-actions__row > input {
 	flex: 1 1 auto;
 }

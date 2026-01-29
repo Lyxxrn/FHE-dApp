@@ -17,15 +17,19 @@
 			<span class="bond-actions__label">Fälligkeit</span>
 			<span class="bond-actions__value">{{ bond?.maturityDate | date: 'dd.MM.yyyy' }}</span>
 		</div>
+		<div class="bond-actions__meta-row">
+			<span class="bond-actions__label">Verfügbare Summe</span>
+			<span class="bond-actions__value">{{ bond?.notionalCap }} €</span>
+		</div>
 	</div>
 
 	@if (isInvestor) {
 		<div class="bond-actions__section">
 			<div class="bond-actions__title">Investor</div>
-			<div class="bond-actions__row">
-				<p-inputnumber placeholder="Kaufbetrag" [useGrouping]="false"></p-inputnumber>
-				<p-button label="Kaufen" icon="pi pi-shopping-cart"></p-button>
-			</div>
+			<form [formGroup]="buyForm" (ngSubmit)="buyBond()" class="bond-actions__row">
+				<p-inputnumber inputId="amount" formControlName="amount" mode="decimal"placeholder="Kaufbetrag" [useGrouping]="false"></p-inputnumber>
+				<p-button label="Kaufen" icon="pi pi-shopping-cart" [loading]="buyLoading" type="submit"></p-button>
+			</form>
 			<div class="bond-actions__row">
 				<p-inputnumber placeholder="Einlösebetrag" [useGrouping]="false"></p-inputnumber>
 				<p-button label="Einlösen" icon="pi pi-wallet"></p-button>
@@ -47,6 +51,10 @@
 			<div class="bond-actions__row">
 				<p-button label="Bond finalisieren" icon="pi pi-flag"></p-button>
 			</div>
+			<form [formGroup]="whitelistForm" (ngSubmit)="whitelist()" class="bond-actions__row">
+				<input id="address" type="text" pInputText formControlName="address" placeholder="Adresse" />
+				<p-button label="Adresse freigeben" icon="pi pi-check" [loading]="whitelistLoading" type="submit"></p-button>
+			</form>
 		</div>
 	}
 </p-dialog>
