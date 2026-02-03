@@ -27,7 +27,9 @@ export interface BondSummaryType {
   issueDate: Date,
   subscriptionEndDate: Date,
   notionalCap: bigint,
-  investorBalance: bigint
+  investorBalance: bigint,
+  requiredPayout: bigint,
+  balance: bigint
 }
 
 @Injectable({
@@ -37,6 +39,7 @@ export class CoFheService {
 
   //state
   readonly isEmitting = signal(false);
+  readonly isRedeeming = signal(false);
   readonly isSummaryLoading = signal(true);
 
   bondsSummary = signal<BondSummaryType[]>([]);
@@ -157,6 +160,7 @@ export class CoFheService {
       functionName: 'getAllBonds'
     });
 
+    // this loop gets all needed bondinfo for later usage in bond-actions and bond-summary
     for (let i = 0; i < result.length; i++) {
 
       const assetAddr = await readContract(this.wallet.config, {
@@ -187,12 +191,115 @@ export class CoFheService {
         //   functionName: 'balanceOf', 
         //   args: [this.wallet.address() as `0x${string}`]
         // }),FheTypes.Uint64))
-        investorBalance: BigInt(1000) // only mockup for now until bug in fhe contract is fixed
+        investorBalance: BigInt(1000), // only mockup for now until bug in fhe contract is fixed
+        requiredPayout: this.unwrap(await cofhejs.decrypt(
+          await readContract(this.wallet.config, {
+            abi: smartBondAbi,
+            address: result[i].bond,
+            functionName: 'totalPayoutRequired'
+          }),FheTypes.Uint64)),
+        balance: this.unwrap(await cofhejs.decrypt(
+          await readContract(this.wallet.config, {
+            abi: bondAssetTokenAbi,
+            address: assetAddr,
+            functionName: 'confidentialBalanceOf',
+            args: [
+              this.wallet.address() as `0x${string}`
+            ]
+          }),FheTypes.Uint64)),
       }
       items.push(item);
     }
     this.bondsSummary.set(items);
     this.isSummaryLoading.set(false);
   }
-  
+
+  async redeemPayout(bond: BondSummaryType) {
+    try {
+      this.isRedeeming.set(true);
+      this.messageService.add({
+          severity: 'info',
+          summary: 'CoFhe',
+          detail: 'Die Verschlüsselung der Auszahlung wird gestartet.'
+        });
+
+        // encrypt value with coFhe
+        const amountEnc = await cofhejs.encrypt([Encryptable.uint64(String(bond.balance))]);
+        console.log(amountEnc.data);
+        console.log(amountEnc.success);
+
+        // read handles and send them to sbc factory to create new bond
+        if (!amountEnc.success || !amountEnc.data || amountEnc.data.length !== 1) {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'CoFhe',
+            detail: 'Die Verschlüsselung ist fehlgeschlagen. Es wurde keine Auszahlung durchgeführt.'
+          });
+          throw new Error('Encryption failed');
+        }
+        // CoFheInUint64 handles need to be casted to InUint64, because CoFheInUint64 only has a string as signature, while InUint64 expect a 0x${string}
+        const toInEuint64 = (x: any) => ({ ...x, signature: x.signature as Hex });
+        this.messageService.add({
+          severity: 'info',
+          summary: 'Redemption',
+          detail: 'Die Redeem-Entschlüsselungs-Transaktion wird gesendet. Bitte prüfen die Ihre Wallet.'
+        });
+
+        // 1) let the smart bond decrypt the wanted amount, this is needed because the ERC-20 payment token is not compatible with Fhenix FHE and the contract needs to now, how to many payment tokens will be returned
+        // this will make the redeemed amount public!
+        const hash = await writeContract(this.wallet.config,{
+          abi: smartBondAbi,
+          address: bond.addressBond as `0x${string}`,
+          functionName: 'requestRedeemEnc',
+          args: [
+            toInEuint64(amountEnc.data[0])
+          ],
+          gas: 16_000_000n
+        });
+        const receipt = await waitForTransactionReceipt(this.wallet.config, {
+          hash,
+          confirmations: 1,
+          timeout: 180_000,
+        });
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Redemption',
+          detail: `Die verschlüssellten Asset Tokens wurden freigegeben und entschlüsselt. Transaktions-Hash: ${receipt.transactionHash}`
+        });
+
+        // 2) the redemption amount is now public and therefore usable for the onchain DvP
+        this.messageService.add({
+          severity: 'info',
+          summary: 'Redemption',
+          detail: 'Die finale Redeem-Transaktion wird gesendet. Bitte prüfen die Ihre Wallet.'
+        });
+        const redeemHash = await writeContract(this.wallet.config,{
+          abi: smartBondAbi,
+          address: bond.addressBond as `0x${string}`,
+          functionName: 'requestRedeemEnc',
+          args: [
+            toInEuint64(amountEnc.data[0])
+          ],
+          gas: 16_000_000n
+        });
+        const redeemReceipt = await waitForTransactionReceipt(this.wallet.config, {
+          hash: redeemHash,
+          confirmations: 1,
+          timeout: 180_000,
+        });
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Redemption',
+          detail: `Die Redeem-Transaktion wurde erfolgreich durchgeführt. Sie haben ihre Payment-Tokens erhalten, Transaktions-Hash: ${redeemReceipt.transactionHash}`
+        });
+        } catch (e) {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Fehler bei der Redemption',
+            detail: `Das Redeemen war nicht erfolgreich. Fehler: ${e}`
+          });
+        } finally {
+          this.isRedeeming.set(false);
+        }
+  }
 }

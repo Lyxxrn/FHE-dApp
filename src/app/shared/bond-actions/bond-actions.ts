@@ -5,7 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
-import { BondSummaryType } from '../../services/co-fhe.service';
+import { BondSummaryType, CoFheService } from '../../services/co-fhe.service';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MessageService } from 'primeng/api';
 import { parseUnits } from 'viem';
@@ -13,6 +13,7 @@ import { waitForTransactionReceipt, writeContract } from '@wagmi/core';
 import { WalletService } from '../../services/wallet.service';
 import { bondAssetTokenAbi, mockLurcAbi, smartBondAbi } from '../../../generated';
 import { environment } from '../../../environments/environment.development';
+import { thunderTestnet } from 'viem/chains';
 
 @Component({
   selector: 'app-bond-actions',
@@ -25,6 +26,11 @@ export class BondActionsComponent {
   private fb = inject(FormBuilder);
   private messageService = inject(MessageService);
   private wallet = inject(WalletService);
+  private cofheService = inject(CoFheService);
+
+  protected isClosing = false;
+  protected isFunding = false;
+  protected isRedeeming = false;
 
   @Input() bond: BondSummaryType | null = null;
   @Input() visible = false;
@@ -37,7 +43,7 @@ export class BondActionsComponent {
   whitelistForm = this.fb.group({
     address: this.fb.control<string | null>(null, { validators: [Validators.required] }),
   });
-  
+
   buyLoading = false;
   whitelistLoading = false;
 
@@ -51,6 +57,13 @@ export class BondActionsComponent {
 
   close() {
     this.visibleChange.emit(false);
+  }
+
+  // FHE redemption is 'outsourced' to cofhe-service
+  async redeem() {
+    this.isRedeeming = true;
+    await this.cofheService.redeemPayout(this.bond!);
+    this.isRedeeming = false;
   }
 
   async buyBond() {
@@ -119,7 +132,7 @@ export class BondActionsComponent {
 
       } catch (e) {
         this.messageService.add({
-          severity: 'info',
+          severity: 'error',
           summary: 'Fehler beim Bondkauf',
           detail: `Der Kauf war nicht erfolgreich. Fehler: ${e}`
         });
@@ -166,7 +179,7 @@ export class BondActionsComponent {
 
       } catch (e) {
         this.messageService.add({
-          severity: 'info',
+          severity: 'error',
           summary: 'Fehler beim Whitelisten',
           detail: `Der Prozess war nicht erfolgreich. Fehler: ${e}`
         });
@@ -176,4 +189,119 @@ export class BondActionsComponent {
       }
 
     }
+  async closeIssuance() {
+    this.isClosing = true;
+    try {
+        this.messageService.add({
+          severity: 'info',
+          summary: 'Smart Bond',
+          detail: 'Die Schließungstransaktion wird eingereicht. Bitte überprüfen Sie Ihre Wallet.'
+        });
+        const closing = await writeContract(this.wallet.config, {
+          abi: smartBondAbi,
+          address: this.bond?.addressBond as `0x${string}`,
+          functionName: 'closeIssuance',
+          gas: 16_000_000n
+        });
+        const approveReceipt = await waitForTransactionReceipt(this.wallet.config, {
+          hash: closing,
+          confirmations: 1,
+          timeout: 180_000
+        });
+        this.messageService.add({
+          severity: 'info',
+          summary: 'Asset',
+          detail: `Die Schließungstransaktion wurde genehmitgt und erfolgreich durchgeführt. Transaktions-Hash: ${closing}`
+        });
+
+      } catch (e) {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Fehler beim Beenden der Zeichnung',
+          detail: `Der Prozess war nicht erfolgreich. Fehler: ${e}`
+        });
+      }
+       finally {
+        this.isClosing = false;
+      }
+  }
+
+  async fundPayout() {
+    try {
+      this.isFunding = true;
+      this.messageService.add({
+          severity: 'info',
+          summary: 'Smart Bond',
+          detail: 'Das Funding für den Smart Bond wird gestartet.'
+        });
+
+      // 1) Allow the Smart Bond to take Tokens from Issuer
+      this.messageService.add({
+        severity: 'info',
+        summary: 'LURC',
+        detail: 'Die Approve-Transaktion wird eingereicht. Bitte überprüfen Sie Ihre Wallet.'
+      });
+      const amountBig = parseUnits(String(this.bond?.requiredPayout), 18);
+      const approveHash = await writeContract(this.wallet.config, {
+        abi: mockLurcAbi,
+        address: environment.lurcAddress as `0x${string}`,
+        functionName: 'approve',
+        args: [
+          this.bond?.addressBond as `0x${string}`, 
+          amountBig
+        ],
+        gas: 16_000_000n
+      });
+      const approveReceipt = await waitForTransactionReceipt(this.wallet.config, {
+        hash: approveHash,
+        confirmations: 1,
+        timeout: 180_000
+      });
+      this.messageService.add({
+        severity: 'info',
+        summary: 'LURC',
+        detail: `Die Approve-Transaktion wurde genehmitgt und erfolgreich durchgeführt. Transaktions-Hash: ${approveReceipt}`
+      });
+    
+      // 2) fund the wanted bond
+      this.messageService.add({
+        severity: 'info',
+        summary: 'Smart Bond',
+        detail: 'Die Fund-Transaktion wird eingereicht. Bitte überprüfen Sie Ihre Wallet.'
+      });
+      const fundHash = await writeContract(this.wallet.config, {
+        abi: smartBondAbi,
+        address: this.bond?.addressBond as `0x${string}`,
+        functionName: 'fundUpfront',
+        args: [
+          this.bond?.requiredPayout as bigint
+        ],
+        gas: 16_000_000n
+      });
+      const fundReceipt = await waitForTransactionReceipt(this.wallet.config, {
+        hash: fundHash,
+        confirmations: 1,
+        timeout: 180_000
+      });
+      this.messageService.add({
+        severity: 'info',
+        summary: 'SBC',
+        detail: `Die Funding-Transaktion wurde genehmitgt und erfolgreich durchgeführt. Transaktions-Hash: ${fundHash}`
+      });
+
+    } catch (e) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Fehler beim Funding',
+        detail: `Das Funding war nicht erfolgreich. Fehler: ${e}`
+      });
+    }
+      finally {
+      this.isFunding = false;
+    }
+  }
+
+  // TODO
+  // async redeemPayout () {
+  // }
 }

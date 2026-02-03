@@ -31,8 +31,8 @@
 				<p-button label="Kaufen" icon="pi pi-shopping-cart" [loading]="buyLoading" type="submit"></p-button>
 			</form>
 			<div class="bond-actions__row">
-				<p-inputnumber placeholder="Einlösebetrag" [useGrouping]="false"></p-inputnumber>
-				<p-button label="Einlösen" icon="pi pi-wallet"></p-button>
+				<span class="bond-actions__value">{{ bond?.balance }} €</span>
+				<p-button label="Einlösen" icon="pi pi-wallet" (click)="redeem()" [loading]="isRedeeming"></p-button>
 			</div>
 		</div>
 	}
@@ -41,15 +41,11 @@
 		<div class="bond-actions__section">
 			<div class="bond-actions__title">Emittent</div>
 			<div class="bond-actions__row">
-				<p-button label="Emittierung starten" icon="pi pi-play"></p-button>
-				<p-button label="Emittierung stoppen" icon="pi pi-stop"></p-button>
+				<p-button label="Zeichnung stoppen" (click)="closeIssuance()" icon="pi pi-stop" [loading]="isClosing"></p-button>
 			</div>
 			<div class="bond-actions__row">
-				<p-inputnumber placeholder="Payout-Betrag" [useGrouping]="false"></p-inputnumber>
-				<p-button label="Payout funden" icon="pi pi-money-bill"></p-button>
-			</div>
-			<div class="bond-actions__row">
-				<p-button label="Bond finalisieren" icon="pi pi-flag"></p-button>
+				<span class="bond-actions__value">{{ bond?.requiredPayout }} €</span>
+				<p-button label="Payout funden" icon="pi pi-money-bill" (click)="fundPayout()" [loading]="isFunding"></p-button>
 			</div>
 			<form [formGroup]="whitelistForm" (ngSubmit)="whitelist()" class="bond-actions__row">
 				<input id="address" type="text" pInputText formControlName="address" placeholder="Adresse" />
