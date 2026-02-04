@@ -4,12 +4,14 @@
 		<p class="page__subtitle">Übersicht und Aktionen für Emittenten.</p>
 	</header>
 
-	<p-card id="bond-form">
-		<app-bond-form></app-bond-form>
-	</p-card>
-	<p-card id="bond-form">
-		<app-faucet></app-faucet>
-	</p-card>
+	<div class="issuer-actions">
+		<p-card class="action-card">
+			<app-bond-form></app-bond-form>
+		</p-card>
+		<p-card class="action-card">
+			<app-faucet></app-faucet>
+		</p-card>
+	</div>
 	<p-card>
 		<app-bond-summary></app-bond-summary>
 	</p-card>

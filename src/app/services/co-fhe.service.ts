@@ -75,6 +75,10 @@ export class CoFheService {
     return r.data as T;
   }
 
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   async emitBond(bond: BondData): Promise<Boolean> {
     this.isEmitting.set(true);
     console.log('Emitting bond: ', bond)
@@ -224,7 +228,9 @@ export class CoFheService {
         });
 
         // encrypt value with coFhe
-        const amountEnc = await cofhejs.encrypt([Encryptable.uint64(String(bond.balance))]);
+        const amountEnc = await cofhejs.encrypt([
+          Encryptable.uint64(bond.balance.toString())
+        ]);
         console.log(amountEnc.data);
         console.log(amountEnc.success);
 
@@ -250,7 +256,7 @@ export class CoFheService {
         const hash = await writeContract(this.wallet.config,{
           abi: smartBondAbi,
           address: bond.addressBond as `0x${string}`,
-          functionName: 'requestRedeemEnc',
+          functionName: 'redeem',
           args: [
             toInEuint64(amountEnc.data[0])
           ],
@@ -267,37 +273,56 @@ export class CoFheService {
           detail: `Die verschlüssellten Asset Tokens wurden freigegeben und entschlüsselt. Transaktions-Hash: ${receipt.transactionHash}`
         });
 
-        // 2) the redemption amount is now public and therefore usable for the onchain DvP
+        // 2) poll claim until decrypt result is ready
         this.messageService.add({
           severity: 'info',
           summary: 'Redemption',
-          detail: 'Die finale Redeem-Transaktion wird gesendet. Bitte prüfen die Ihre Wallet.'
+          detail: 'Warte auf Entschlüsselung und führe Auszahlung aus...'
         });
-        const redeemHash = await writeContract(this.wallet.config,{
-          abi: smartBondAbi,
-          address: bond.addressBond as `0x${string}`,
-          functionName: 'requestRedeemEnc',
-          args: [
-            toInEuint64(amountEnc.data[0])
-          ],
-          gas: 16_000_000n
-        });
-        const redeemReceipt = await waitForTransactionReceipt(this.wallet.config, {
-          hash: redeemHash,
-          confirmations: 1,
-          timeout: 180_000,
-        });
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Redemption',
-          detail: `Die Redeem-Transaktion wurde erfolgreich durchgeführt. Sie haben ihre Payment-Tokens erhalten, Transaktions-Hash: ${redeemReceipt.transactionHash}`
-        });
+        const maxAttempts = 30;
+        const delayMs = 4000;
+        let claimed = false;
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            const claimHash = await writeContract(this.wallet.config,{
+              abi: smartBondAbi,
+              address: bond.addressBond as `0x${string}`,
+              functionName: 'claimRedeem',
+              args: [],
+              gas: 16_000_000n
+            });
+            const claimReceipt = await waitForTransactionReceipt(this.wallet.config, {
+              hash: claimHash,
+              confirmations: 1,
+              timeout: 180_000,
+            });
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Redemption',
+              detail: `Die Redeem-Transaktion wurde erfolgreich durchgeführt. Sie haben ihre Payment-Tokens erhalten, Transaktions-Hash: ${claimReceipt.transactionHash}`
+            });
+            claimed = true;
+            break;
+          } catch (err: any) {
+            const msg = String(err?.shortMessage ?? err?.message ?? err);
+            if (msg.includes('Payout decryption pending')) {
+              await this.sleep(delayMs);
+              continue;
+            }
+            throw err;
+          }
+        }
+
+        if (!claimed) {
+          throw new Error('Payout decryption pending');
+        }
         } catch (e) {
           this.messageService.add({
             severity: 'error',
             summary: 'Fehler bei der Redemption',
             detail: `Das Redeemen war nicht erfolgreich. Fehler: ${e}`
           });
+          console.error(e);
         } finally {
           this.isRedeeming.set(false);
         }

@@ -2,8 +2,14 @@
 	margin: 0;
 }
 
-#bond-form{
+.issuer-actions {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 1rem;
+	align-items: start;
+}
+
+.issuer-actions .action-card {
 	max-width: 28rem;
 	width: min(100%, 28rem);
-	justify-self: start;
 }
