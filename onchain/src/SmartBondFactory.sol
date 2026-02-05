@@ -35,7 +35,7 @@ contract SmartBondFactory {
     ) external onlyIssuerAdmin  returns (address bondAddr, address assetAddr) {
         require(paymentToken != address(0), "Payment=0");
 
-        address issuer = msg.sender;
+        address issuer = issuerAdminAddr;
 
         // Convert confidential inputs to on-chain handles
         euint64 cap = FHE.asEuint64(cap_);

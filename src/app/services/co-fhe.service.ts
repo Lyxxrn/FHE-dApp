@@ -188,14 +188,14 @@ export class CoFheService {
         issueDate: this.fromUnixSeconds(result[i].issueDate),
         subscriptionEndDate: this.fromUnixSeconds(result[i].subscriptionEndDate),
         notionalCap: this.unwrap(await cofhejs.decrypt(result[i].notionalCap, FheTypes.Uint64)),
-        // investorBalance: this.unwrap(await cofhejs.decrypt(
-        // await readContract(this.wallet.config, {
-        //   abi: bondAssetTokenAbi,
-        //   address: assetAddr,
-        //   functionName: 'balanceOf', 
-        //   args: [this.wallet.address() as `0x${string}`]
-        // }),FheTypes.Uint64))
-        investorBalance: BigInt(1000), // only mockup for now until bug in fhe contract is fixed
+        investorBalance: this.unwrap(await cofhejs.decrypt(
+        await readContract(this.wallet.config, {
+          abi: bondAssetTokenAbi,
+          address: assetAddr,
+          functionName: 'balanceOf', 
+          args: [this.wallet.address() as `0x${string}`]
+        }),FheTypes.Uint64)),
+        // investorBalance: BigInt(1000), // only mockup for now until bug in fhe contract is fixed
         requiredPayout: this.unwrap(await cofhejs.decrypt(
           await readContract(this.wallet.config, {
             abi: smartBondAbi,
