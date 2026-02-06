@@ -103,7 +103,6 @@ contract SmartBond is ReentrancyGuard {
 
         priceAtIssue = priceAtIssue_;
         couponRatePerYear = couponRatePerYear_;
-        FHE.allow(couponRatePerYear, issuerAdmin);
 
         emit BondActivated(issueDate, subscriptionEndDate, maturityDate, priceAtIssue);
     }

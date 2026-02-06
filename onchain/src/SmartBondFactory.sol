@@ -42,6 +42,7 @@ contract SmartBondFactory {
         euint64 maturityDate = FHE.asEuint64(maturityDate_);
         euint64 priceAtIssue = FHE.asEuint64(priceAtIssue_);
         euint64 couponRatePerYear = FHE.asEuint64(couponRatePerYear_);
+        FHE.allow(couponRatePerYear, msg.sender);
 
         // Deploy asset token
         BondAssetToken assetToken = new BondAssetToken(cap, issuer);

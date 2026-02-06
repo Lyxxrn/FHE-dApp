@@ -2,8 +2,8 @@ import {  sepolia } from '@wagmi/core/chains'
 
 export const environment = {
    lurcAddress: '0x33F6C109b2cB75eB88B52586BeA9552A9Efc866F',
-   bondRegistryAddress: '0xFe6fEd55f5698E1D7C993512594cE8eF8765770D',
-   bondFactoryAddress: '0x4ec9E47B234e5Fa27d91210aAAF95D277d361581',
+   bondRegistryAddress: '0xdfda15ef87db2a1a5bddcf1e8f7f19d188965853',
+   bondFactoryAddress: '0x034b5f53b127a9689634d126643ed726bb6daac4',
    
 
    infuraApiKey: 'fe740512a8fc421990f1f68a02cbee6e',

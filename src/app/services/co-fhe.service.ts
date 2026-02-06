@@ -1,10 +1,10 @@
 import { effect, inject, Injectable, signal } from '@angular/core';
 import { WalletService } from './wallet.service';
 import { cofhejs, Encryptable, EncryptableUint64, FheTypes, Result } from 'cofhejs/web';
-import { writeContract, waitForTransactionReceipt, readContract } from '@wagmi/core';
+import { writeContract, waitForTransactionReceipt, readContract, simulateContract } from '@wagmi/core';
 import { bondAssetTokenAbi, smartBondAbi, smartBondFactoryAbi, smartBondRegistryAbi } from '../../generated';
 import { environment } from '../../environments/environment.development';
-import { Hex } from 'viem';
+import { Hex, BaseError, TransactionExecutionError } from 'viem';
 import { MessageService } from 'primeng/api';
 
 // input type to emit new bonds
@@ -147,7 +147,11 @@ export class CoFheService {
       return receipt.status === 'success';
     }
     catch (e) {
-      console.error(e);
+      this.messageService.add({
+            severity: 'error',
+            summary: 'Fehler bei dem Kaufen',
+            detail: `Die Transaktion war nicht erfolgreich. Fehler: ${e}`
+          });
       this.isEmitting.set(false);
       return false;
     }
@@ -173,7 +177,6 @@ export class CoFheService {
           functionName: 'assetToken'
         });
 
-      // TODO: the dApp ist currently not allowed to read encrypted assetToken balance and coupon, needs to be fixed
       const item: BondSummaryType = {
         isin: result[i].isin,
         maturityDate: this.fromUnixSeconds(this.unwrap(await cofhejs.decrypt(result[i].maturityDate, FheTypes.Uint64))),
@@ -188,14 +191,15 @@ export class CoFheService {
         issueDate: this.fromUnixSeconds(result[i].issueDate),
         subscriptionEndDate: this.fromUnixSeconds(result[i].subscriptionEndDate),
         notionalCap: this.unwrap(await cofhejs.decrypt(result[i].notionalCap, FheTypes.Uint64)),
-        investorBalance: this.unwrap(await cofhejs.decrypt(
-        await readContract(this.wallet.config, {
-          abi: bondAssetTokenAbi,
-          address: assetAddr,
-          functionName: 'balanceOf', 
-          args: [this.wallet.address() as `0x${string}`]
-        }),FheTypes.Uint64)),
-        // investorBalance: BigInt(1000), // only mockup for now until bug in fhe contract is fixed
+        // not working, dApp is currently not allowed to access the balances of the FHERC-20 functions
+        // investorBalance: this.unwrap(await cofhejs.decrypt(
+        // await readContract(this.wallet.config, {
+        //   abi: bondAssetTokenAbi,
+        //   address: assetAddr,
+        //   functionName: 'balanceOf', 
+        //   args: [this.wallet.address() as `0x${string}`]
+        // }),FheTypes.Uint64)),
+        investorBalance: BigInt(1000), // only mockup for now until bug in fhe contract is fixed
         requiredPayout: this.unwrap(await cofhejs.decrypt(
           await readContract(this.wallet.config, {
             abi: smartBondAbi,
@@ -322,7 +326,6 @@ export class CoFheService {
             summary: 'Fehler bei der Redemption',
             detail: `Das Redeemen war nicht erfolgreich. Fehler: ${e}`
           });
-          console.error(e);
         } finally {
           this.isRedeeming.set(false);
         }
