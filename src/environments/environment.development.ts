@@ -6,6 +6,7 @@ export const environment = {
    bondFactoryAddress: '0x034b5f53b127a9689634d126643ed726bb6daac4',
    
 
+  // for testing purposes only
    infuraApiKey: 'fe740512a8fc421990f1f68a02cbee6e',
 
    chain: sepolia,
