@@ -10,7 +10,7 @@ error NotIssuerAdmin();
 
 /// @notice Confidential bond lifecycle with FHE-encrypted balances and payouts.
 /// @dev Uses Fhenix FHE handles for notional, coupon and payout math; plaintext funds remain ERC20.
-contract SmartBond {
+contract SmartBond is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     address public issuerAdminAddr;
@@ -56,7 +56,7 @@ contract SmartBond {
     event PayoutDecryptionRequested(address indexed holder, euint64 payoutTotal);
     event BondClosed();
 
-     modifier onlyIssuerAdmin() {
+    modifier onlyIssuerAdmin() {
         if (msg.sender != issuerAdminAddr) revert NotIssuerAdmin();
         _;
     }
@@ -64,6 +64,13 @@ contract SmartBond {
     /// @notice Expose the encrypted payout handle for off-chain/decrypt orchestration.
     function pendingPayoutHandle(address holder) external view returns (euint64) {
         return _pendingPayout[holder];
+    }
+
+    /// @notice Helper for dApps: query decrypt status and plaintext result (if ready) per holder.
+    function payoutDecryptStatus(address holder) external view returns (bool ready, uint64 payoutPlain) {
+        euint64 handle = _pendingPayout[holder];
+        (uint64 plain, bool isReady) = FHE.getDecryptResultSafe(handle);
+        return (isReady, plain);
     }
 
     /// @notice Create a bond with fixed coupon set at issuance.
@@ -215,7 +222,7 @@ contract SmartBond {
     }
 
     /// @notice Claim payout after decrypt is ready.
-    function claimRedeem() external {
+    function claimRedeem() external nonReentrant {
         require(_payoutDecryptRequested[msg.sender], "No pending redeem");
         _claimRedeem(msg.sender);
     }
@@ -231,23 +238,24 @@ contract SmartBond {
 
         assetToken.confidentialBurnFrom(holder, effectiveAmount);
 
-        euint128 eff128      = FHE.asEuint128(effectiveAmount);
-        euint128 ip128       = FHE.asEuint128(interestPerToken);
-        euint128 interest128 = FHE.div(FHE.mul(eff128, ip128), FHE.asEuint128(1e6));
+        euint128 eff128       = FHE.asEuint128(effectiveAmount);
+        euint128 ip128        = FHE.asEuint128(interestPerToken);
+        euint128 interest128  = FHE.div(FHE.mul(eff128, ip128), FHE.asEuint128(1e6));
         euint128 principal128 = eff128;
-        euint128 total128    = FHE.add(principal128, interest128);
+        euint128 total128     = FHE.add(principal128, interest128);
 
-        euint128 max64       = FHE.asEuint128(type(uint64).max);
+        euint128 max64        = FHE.asEuint128(type(uint64).max);
         euint64 payoutInterest  = FHE.asEuint64(FHE.select(FHE.gt(interest128, max64), max64, interest128));
         euint64 payoutPrincipal = effectiveAmount;
         euint64 payoutTotalEnc  = FHE.asEuint64(FHE.select(FHE.gt(total128, max64), max64, total128));
 
         FHE.allow(payoutTotalEnc, issuerAdminAddr);
 
-        _pendingPayout[holder] = payoutTotalEnc;
-        _pendingToken[holder] = tokenAmount;
+        _pendingPayout[holder]    = payoutTotalEnc;
+        _pendingToken[holder]     = tokenAmount;
         _pendingPrincipal[holder] = payoutPrincipal;
-        _pendingInterest[holder] = payoutInterest;
+        _pendingInterest[holder]  = payoutInterest;
+
         FHE.allowThis(payoutTotalEnc);
         FHE.decrypt(payoutTotalEnc);
         _payoutDecryptRequested[holder] = true;
@@ -258,16 +266,16 @@ contract SmartBond {
 
     /// @dev Read decrypt result and transfer plaintext payout.
     function _claimRedeem(address holder) internal {
-        (uint64 payoutTotalPlain, bool ready) = FHE.getDecryptResultSafe(_pendingPayout[holder]);
+        (uint64 payoutPlain, bool ready) = FHE.getDecryptResultSafe(_pendingPayout[holder]);
         require(ready, "Payout decryption pending");
 
-        require(payoutEscrowBalance >= payoutTotalPlain, "Escrow shortfall");
-        payoutEscrowBalance -= payoutTotalPlain;
-        paymentToken.safeTransfer(holder, payoutTotalPlain);
+        require(payoutEscrowBalance >= payoutPlain, "Escrow shortfall");
+        payoutEscrowBalance -= payoutPlain;
+        paymentToken.safeTransfer(holder, payoutPlain);
 
         _payoutDecryptRequested[holder] = false;
 
-        emit RedeemedPayout(holder, payoutTotalPlain);
+        emit RedeemedPayout(holder, payoutPlain);
         emit Redeemed(holder, _pendingToken[holder], _pendingPrincipal[holder], _pendingInterest[holder]);
     }
 }
