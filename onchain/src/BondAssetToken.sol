@@ -32,7 +32,6 @@ contract BondAssetToken is FHERC20, AccessControl {
 
     event BondSet(address indexed bond);
     event WhitelistUpdated(address indexed holder, bool status);
-    event BalanceAccessGranted(address indexed holder, address indexed viewer);
 
     /// @notice Construct the confidential bond asset token.
     /// @param capEncrypted Encrypted cap handle (euint64).

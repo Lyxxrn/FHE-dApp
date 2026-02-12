@@ -462,25 +462,6 @@ export const bondAssetTokenAbi = [
     type: 'event',
     anonymous: false,
     inputs: [
-      {
-        name: 'holder',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'viewer',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'BalanceAccessGranted',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
       { name: 'bond', internalType: 'address', type: 'address', indexed: true },
     ],
     name: 'BondSet',
@@ -1194,16 +1175,6 @@ export const smartBondAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'holder', internalType: 'address', type: 'address' }],
-    name: 'payoutDecryptStatus',
-    outputs: [
-      { name: 'ready', internalType: 'bool', type: 'bool' },
-      { name: 'payoutPlain', internalType: 'uint64', type: 'uint64' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
     inputs: [],
     name: 'payoutEscrowBalance',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
@@ -1505,7 +1476,6 @@ export const smartBondAbi = [
     name: 'InvalidEncryptedInput',
   },
   { type: 'error', inputs: [], name: 'NotIssuerAdmin' },
-  { type: 'error', inputs: [], name: 'ReentrancyGuardReentrantCall' },
   {
     type: 'error',
     inputs: [{ name: 'token', internalType: 'address', type: 'address' }],

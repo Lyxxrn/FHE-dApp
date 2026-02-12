@@ -25,8 +25,8 @@ contract BondContracts is Script {
         // lurc = new MockLURC("Mock EuroTest", "LURC", msg.sender);
 
         // 2) registry + factory; grant FACTORY_ROLE to factory
-        registry = new SmartBondRegistry(address(0xF8D4339525cA9BD071ABfe063E90C203FEC6e350));
-        factory = new SmartBondFactory(address(0xF8D4339525cA9BD071ABfe063E90C203FEC6e350), address(registry));
+        registry = new SmartBondRegistry(msg.sender);
+        factory = new SmartBondFactory(msg.sender, address(registry));
         registry.setFactory(address(factory));
         // bonds + assets can be deployed via the factory 'createBond' function
 
